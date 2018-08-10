@@ -10,33 +10,55 @@ pub fn read_rom(p: &'static str) -> Result<Vec<u8>, &'static str> {
 
 pub struct OpReader<I>(I);
 
-fn read_code<I: Iterator<Item = u8>>(code: OpCode, iter: &mut I) -> Result<Instruction, String> {
+macro_rules! read_2 {
+    ($inst:path, $iter:ident) => {
+        Ok($inst($iter.next().unwrap()))
+    };
+}
+
+macro_rules! read_3 {
+    ($inst:path, $iter:ident) => {
+        Ok($inst($iter.next().unwrap(), $iter.next().unwrap()))
+    };
+    ($inst:path, $iter:ident,$reg:expr) => {
+        Ok($inst($reg, $iter.next().unwrap(), $iter.next().unwrap()))
+    };
+}
+
+fn read_code<I>(code: OpCode, iter: &mut I) -> Result<Instruction, String>
+where
+    I: Iterator<Item = u8>,
+{
+    use ops::Register::*;
     match code {
         OpCode::NOP => Ok(Instruction::NOP),
-        OpCode::LXI => {
-            let next = iter.next().unwrap();
-            let next2 = iter.next().unwrap();
-            Ok(Instruction::LXI(next, next2))
-        }
+        OpCode::LXI_B_D => read_3!(Instruction::LXI, iter, [B, D]),
+        OpCode::LXI_H_D => read_3!(Instruction::LXI, iter, [H, D]),
 
-        OpCode::JMP => {
-            let n = iter.next().unwrap();
-            let n2 = iter.next().unwrap();
-            Ok(Instruction::JMP(n, n2))
-        }
+        OpCode::JMP => read_3!(Instruction::JMP, iter),
+        OpCode::MVI => read_2!(Instruction::MVI, iter),
+        OpCode::STA => read_3!(Instruction::STA, iter),
 
-        e => Err(format!("OpCode unimplemetned: {:?}", e)),
+        OpCode::PUSH_PSW => Ok(Instruction::PUSH(PSW)),
+        OpCode::PUSH_B => Ok(Instruction::PUSH(B)),
+        OpCode::PUSH_D => Ok(Instruction::PUSH(D)),
+        OpCode::PUSH_H => Ok(Instruction::PUSH(H)),
+
+        e => Err(format!("OpCode unimplemented: {:?}", e)),
     }
 }
 
-impl<I: Iterator<Item = u8>> Iterator for OpReader<I> {
+impl<I> Iterator for OpReader<I>
+where
+    I: Iterator<Item = u8>,
+{
     type Item = Result<Instruction, String>;
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(b) = self.0.next() {
             if let Some(code) = OpCode::from_u8(b) {
                 Some(read_code(code, &mut self.0))
             } else {
-                Some(Err(format!("OpCode unimplemetned: {:?}", b)))
+                Some(Err(format!("OpCode unimplemented: {:X?}", b)))
             }
         } else {
             None
@@ -69,5 +91,13 @@ mod tests {
         r.next();
         r.next();
         assert_eq!(r.next(), Some(Ok(Instruction::JMP(0xd4, 0x18))));
+    }
+
+    #[test]
+    fn test_disassemble_all() {
+        let buf = read_invaders();
+        let r = reader(buf);
+
+        r.for_each(|inst| println!("Instruction: {:?}", inst.unwrap()));
     }
 }
