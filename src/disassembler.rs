@@ -24,35 +24,38 @@ macro_rules! read_1 {
 }
 macro_rules! read_2 {
     ($inst:path, $iter:ident) => {
-        Ok(($inst($iter.next().unwrap()), 1))
+        Ok(($inst(*$iter.next().unwrap()), 1))
     };
     ($inst:path, $iter:ident,$reg:expr) => {
-        Ok(($inst($reg, $iter.next().unwrap()), 2))
+        Ok(($inst($reg, *$iter.next().unwrap()), 2))
     };
 
     ($inst:path, $iter:ident,$reg:expr, $reg2:expr) => {
-        Ok(($inst($reg, $reg2, $iter.next().unwrap()), 2))
+        Ok(($inst($reg, $reg2, *$iter.next().unwrap()), 2))
     };
 }
 
 macro_rules! read_3 {
     ($inst:path, $iter:ident) => {
-        Ok(($inst($iter.next().unwrap(), $iter.next().unwrap()), 2))
+        Ok(($inst(*$iter.next().unwrap(), *$iter.next().unwrap()), 2))
     };
     ($inst:path, $iter:ident,$reg:expr) => {
-        Ok(($inst($reg, $iter.next().unwrap(), $iter.next().unwrap()), 2))
+        Ok((
+            $inst($reg, *$iter.next().unwrap(), *$iter.next().unwrap()),
+            2,
+        ))
     };
     ($inst:path, $iter:ident,$reg:expr, $reg2:expr) => {
         Ok((
-            $inst($reg, $reg2, $iter.next().unwrap(), $iter.next().unwrap()),
+            $inst($reg, $reg2, *$iter.next().unwrap(), *$iter.next().unwrap()),
             2,
         ))
     };
 }
 
-fn read_code<I>(code: OpCode, iter: &mut I) -> Result<(Instruction, u16), String>
+fn read_code<'a, I>(code: OpCode, iter: &mut I) -> Result<(Instruction, u16), String>
 where
-    I: Iterator<Item = u8>,
+    I: Iterator<Item = &'a u8>,
 {
     use ops::Register::*;
     match code {
@@ -366,9 +369,9 @@ where
     }
 }
 
-impl<I> Iterator for OpReader<I>
+impl<'a, I> Iterator for OpReader<I>
 where
-    I: Iterator<Item = u8>,
+    I: Iterator<Item = &'a u8>,
 {
     type Item = Result<(Instruction, u16), String>;
     fn next(&mut self) -> Option<Self::Item> {
@@ -376,7 +379,7 @@ where
         self.pc += 1;
 
         if let Some(b) = self.iter.next() {
-            if let Some(code) = OpCode::from_u8(b) {
+            if let Some(code) = OpCode::from_u8(*b) {
                 match read_code(code, &mut self.iter) {
                     Ok((inst, i)) => {
                         self.pc += i;
@@ -395,15 +398,14 @@ where
 
 impl<I> OpReader<I> where I: Iterator<Item = u8> {}
 
-pub fn reader(buf: Vec<u8>) -> OpReader<impl Iterator<Item = u8>> {
+pub fn reader(buf: &Vec<u8>) -> OpReader<impl Iterator<Item = &u8>> {
     OpReader {
-        iter: buf.into_iter(),
+        iter: buf.iter(),
         pc: 0,
     }
 }
 
 use std::collections::HashMap;
-
 
 #[cfg(test)]
 mod tests {
@@ -421,7 +423,7 @@ mod tests {
     #[test]
     fn test_disassemble() {
         let buf = read_invaders();
-        let mut r = reader(buf);
+        let mut r = reader(&buf);
         assert_eq!(r.next(), Some(Ok((Instruction::NOP, 0))));
         r.next();
         r.next();
@@ -431,7 +433,7 @@ mod tests {
     #[test]
     fn test_disassemble_all() {
         let buf = read_invaders();
-        let r = reader(buf);
+        let r = reader(&buf);
 
         r.for_each(|inst| match inst {
             Ok((inst, pc)) => println!("{:#X?} {:?}", pc, inst),

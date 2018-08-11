@@ -55,6 +55,7 @@ struct State {
     pc: u16,
     cc: ConditionCodes,
     memory: MMap,
+    raw: Vec<u8>,
     int_enable: u8,
 }
 
@@ -86,11 +87,15 @@ impl State {
     }
 
     fn reset(self) -> State {
-        new_state(self.memory)
+        new_state(self.raw)
     }
 }
 
-fn new_state(memory: MMap) -> State {
+fn new_state(raw: Vec<u8>) -> State {
+    let memory = {
+        let mut reader = reader(&raw);
+        mmap(&mut reader)
+    };
     State {
         a: 0x0,
         b: 0x0,
@@ -109,12 +114,23 @@ fn new_state(memory: MMap) -> State {
         sp: 0x0,
         pc: 0x0,
         memory: memory,
+        raw,
         int_enable: 0x0,
     }
 }
 
 fn add(reg: Register, state: &mut State) {
     let answer: u16 = (state.a as u16) + (state.get_u8(reg) as u16);
+
+    state.cc.zero(answer);
+    state.cc.parity(answer);
+    state.cc.sign(answer);
+    state.cc.carry(answer);
+    state.a = (answer & 0xff) as u8
+}
+
+fn adi(val: u8, state: &mut State) {
+    let answer: u16 = (state.a as u16) + (val as u16);
 
     state.cc.zero(answer);
     state.cc.parity(answer);
@@ -134,6 +150,7 @@ fn emulate(state: &mut State) -> Result<(), &'static str> {
     let result = match instruction {
         NOP => Ok(()),
         ADD(reg) => Ok(add(reg, state)),
+        ADI(value) => Ok(adi(value, state)),
         inst => unimplemented!("{:?}", inst),
     };
 
@@ -142,7 +159,7 @@ fn emulate(state: &mut State) -> Result<(), &'static str> {
 }
 
 pub fn run() {
-    let memory = mmap_rom();
+    let memory = read_rom("roms/invaders.rom").unwrap();
     let mut state = new_state(memory);
 
     while let Ok(()) = emulate(&mut state) {}
@@ -151,7 +168,7 @@ pub fn run() {
 use std::collections::HashMap;
 pub type MMap = HashMap<u16, Instruction>;
 
-pub fn mmap<I: Iterator<Item = u8>>(reader: &mut OpReader<I>) -> MMap {
+pub fn mmap<'a, I: Iterator<Item = &'a u8>>(reader: &mut OpReader<I>) -> MMap {
     let mut map = HashMap::new();
     while let Some(Ok((inst, pc))) = reader.next() {
         map.insert(pc, inst);
@@ -161,29 +178,15 @@ pub fn mmap<I: Iterator<Item = u8>>(reader: &mut OpReader<I>) -> MMap {
 
 pub fn mmap_rom() -> MMap {
     let rom = read_rom("roms/invaders.rom").unwrap();
-    let mut r = reader(rom);
+    let mut r = reader(&rom);
     mmap(&mut r)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn all_8bit_registers() -> Vec<Register> {
-        vec![
-            Register::A,
-            Register::B,
-            Register::C,
-            Register::D,
-            Register::E,
-            Register::H,
-            Register::L,
-        ]
-    }
-
-    fn test_add_register(reg: Register) {
-        let mut mem: MMap = HashMap::new();
-        mem.insert(0x0, Instruction::ADD(reg));
+    fn test_add_register(reg: Register, code: OpCode) {
+        let mut mem: Vec<u8> = vec![code as u8];
         let mut state = new_state(mem);
         state.a = 0;
         state.set_u8(reg, 1);
@@ -211,10 +214,50 @@ mod tests {
         assert_eq!(state.cc.cy, true);
     }
 
+    // #[test]
+    // fn test_add_memory() {
+    //     let mut mem: MMap = HashMap::new();
+    //     mem.insert(0x0, Instruction::Add(Register::M))
+    //     mem.insert(0x128,
+    //     let mut state = new_state(mem);
+    //     state.a = 0;
+    //     }
+
+    //     let mut state = state.reset();
+
+    //     emulate(&mut state).unwrap();
+
+    //     assert_eq!(state.a, 0);
+    //     assert_eq!(state.cc.z, true);
+
+    //     // check sign
+    //     let mut state = state.reset();
+
+    //     state.a = 200;
+    //     state.set_u8(reg, 200);
+    //     emulate(&mut state).unwrap();
+    //     assert_eq!(state.a, 144);
+    //     assert_eq!(state.cc.s, true);
+    //     assert_eq!(state.cc.cy, true);
+    // }
+
+    #[test]
+    fn test_adi() {
+        let mut mem = vec![OpCode::ADI as u8, 2];
+        let mut state = new_state(mem);
+        state.a = 2;
+        emulate(&mut state).unwrap();
+        assert_eq!(state.a, 4);
+    }
+
     #[test]
     fn test_add() {
-        for reg in all_8bit_registers() {
-            test_add_register(reg)
-        }
+        test_add_register(Register::A, OpCode::ADD_A);
+        test_add_register(Register::B, OpCode::ADD_B);
+        test_add_register(Register::C, OpCode::ADD_C);
+        test_add_register(Register::D, OpCode::ADD_D);
+        test_add_register(Register::E, OpCode::ADD_E);
+        test_add_register(Register::H, OpCode::ADD_H);
+        test_add_register(Register::L, OpCode::ADD_L);
     }
 }
