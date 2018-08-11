@@ -11,7 +11,7 @@ pub fn read_rom(p: &'static str) -> Result<Vec<u8>, &'static str> {
 
 pub struct OpReader<I> {
     iter: I,
-    pc: i32,
+    pc: u16,
 }
 
 macro_rules! read_1 {
@@ -50,7 +50,7 @@ macro_rules! read_3 {
     };
 }
 
-fn read_code<I>(code: OpCode, iter: &mut I) -> Result<(Instruction, i32), String>
+fn read_code<I>(code: OpCode, iter: &mut I) -> Result<(Instruction, u16), String>
 where
     I: Iterator<Item = u8>,
 {
@@ -370,7 +370,7 @@ impl<I> Iterator for OpReader<I>
 where
     I: Iterator<Item = u8>,
 {
-    type Item = Result<(Instruction, i32), String>;
+    type Item = Result<(Instruction, u16), String>;
     fn next(&mut self) -> Option<Self::Item> {
         let current_pc = self.pc;
         self.pc += 1;
@@ -401,6 +401,9 @@ pub fn reader(buf: Vec<u8>) -> OpReader<impl Iterator<Item = u8>> {
         pc: 0,
     }
 }
+
+use std::collections::HashMap;
+
 
 #[cfg(test)]
 mod tests {

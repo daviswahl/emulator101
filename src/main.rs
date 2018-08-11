@@ -6,8 +6,12 @@ extern crate num_traits;
 extern crate num_derive;
 
 pub mod disassembler;
+pub mod emulator;
 pub mod ops;
 
+pub fn main() {
+    emulator::run()
+}
 #[cfg(test)]
 mod tests {
     use std::char;

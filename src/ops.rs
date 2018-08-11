@@ -260,7 +260,7 @@ pub enum OpCode {
     RST_7 = 0xff,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Register {
     A,
     B,
@@ -274,7 +274,7 @@ pub enum Register {
     SP,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum Instruction {
     NOP,
