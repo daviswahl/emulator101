@@ -120,8 +120,14 @@ fn new_state(raw: Vec<u8>) -> State {
 }
 
 fn add(reg: Register, state: &mut State) {
-    let answer: u16 = (state.a as u16) + (state.get_u8(reg) as u16);
-
+    use std::ops::Index;
+    let answer = match reg {
+        Register::M => {
+            let offset = ((state.h as u16) << 8) | state.l as u16;
+            (state.a as u16) + (*state.raw.index(offset as usize) as u16)
+        }
+        r => (state.a as u16) + (state.get_u8(r) as u16),
+    };
     state.cc.zero(answer);
     state.cc.parity(answer);
     state.cc.sign(answer);
@@ -214,36 +220,26 @@ mod tests {
         assert_eq!(state.cc.cy, true);
     }
 
-    // #[test]
-    // fn test_add_memory() {
-    //     let mut mem: MMap = HashMap::new();
-    //     mem.insert(0x0, Instruction::Add(Register::M))
-    //     mem.insert(0x128,
-    //     let mut state = new_state(mem);
-    //     state.a = 0;
-    //     }
+    #[test]
+    fn test_add_memory() {
+        let mut mem: Vec<u8> = vec![0x0; 512];
+        mem.insert(0, OpCode::ADD_M as u8);
+        mem.insert(259, 200);
+        let mut state = new_state(mem);
+        state.h = 1;
+        state.l = 3;
+        state.a = 2;
 
-    //     let mut state = state.reset();
+        emulate(&mut state).unwrap();
 
-    //     emulate(&mut state).unwrap();
-
-    //     assert_eq!(state.a, 0);
-    //     assert_eq!(state.cc.z, true);
-
-    //     // check sign
-    //     let mut state = state.reset();
-
-    //     state.a = 200;
-    //     state.set_u8(reg, 200);
-    //     emulate(&mut state).unwrap();
-    //     assert_eq!(state.a, 144);
-    //     assert_eq!(state.cc.s, true);
-    //     assert_eq!(state.cc.cy, true);
-    // }
+        assert_eq!(state.a, 202);
+    }
 
     #[test]
     fn test_adi() {
-        let mut mem = vec![OpCode::ADI as u8, 2];
+        let mut mem: Vec<u8> = vec![128; 0x0];
+        mem.insert(0, OpCode::ADI as u8);
+        mem.insert(1, 2);
         let mut state = new_state(mem);
         state.a = 2;
         emulate(&mut state).unwrap();

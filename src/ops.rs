@@ -1,3 +1,5 @@
+#![allow(exceeding_bitshifts)]
+
 #[repr(u8)]
 #[derive(FromPrimitive, PartialEq, Debug)]
 #[allow(non_camel_case_types)]
