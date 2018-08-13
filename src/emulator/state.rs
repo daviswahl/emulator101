@@ -42,7 +42,7 @@ impl State {
         }
     }
 
-    fn reset(self) -> State {
+    pub fn reset(self) -> State {
         new_state(self.memory)
     }
 
@@ -52,6 +52,14 @@ impl State {
             Ok(*self.memory.index(self.pc as usize))
         } else {
             Err(format!("Tried to read out of range address: {}", self.pc))
+        }
+    }
+
+    pub fn read_m(&mut self, offset: usize) -> Result<u8, String> {
+        if (self.memory.len() >= offset) {
+            Ok(*self.memory.index(offset))
+        } else {
+            Err(format!("Tried to read out of range address: {}", offset))
         }
     }
 }
@@ -81,11 +89,11 @@ pub (crate) fn new_state(memory: Vec<u8>) -> State {
 
 #[derive(Copy, Clone)]
 pub (crate) struct ConditionCodes {
-    z: bool,
-    s: bool,
-    p: bool,
-    cy: bool,
-    ac: bool,
+    pub z: bool,
+    pub s: bool,
+    pub p: bool,
+    pub cy: bool,
+    pub ac: bool,
 }
 impl ConditionCodes {
     pub fn parity(&mut self, v: u16) {

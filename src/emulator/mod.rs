@@ -14,7 +14,12 @@ pub fn run() {
     let memory = read_rom("roms/invaders.rom").unwrap();
     let mut state = state::new_state(memory);
 
-    while let Ok(()) = emulate::emulate(&mut state) {}
+    loop {
+        match emulate::emulate(&mut state) { 
+            Ok(()) => (),
+            Err(s) => panic!(s)
+        }
+    } 
 }
 
 use std::collections::HashMap;
