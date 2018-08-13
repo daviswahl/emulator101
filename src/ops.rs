@@ -276,8 +276,8 @@ pub enum Register {
     SP,
 }
 
-#[derive(PartialEq, Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Instruction {
     NOP,
     LXI(Register, Register, u8, u8),
