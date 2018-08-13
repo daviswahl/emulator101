@@ -33,7 +33,7 @@ pub (crate) fn jmp(state: &mut State) -> Result<(), String> {
     let l = state.read_1()?;
     let h = state.read_1()?;
     let offset = (h as u16)<<8 | l as u16;
-    println!("jumping to: {}", offset);
+    println!("jumping to: {:#X}", offset);
     state.pc = offset;
 
     Ok(())
