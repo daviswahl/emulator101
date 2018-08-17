@@ -11,6 +11,7 @@ macro_rules! simple {
 }
 use machine::cpu::ops::OpCode;
 
+#[derive(Debug)]
 pub(crate) struct Interrupt<'a> {
     code: OpCode,
     state: &'a mut CPU,
@@ -26,11 +27,11 @@ where
     let code = state.read(state.pc)?;
     let op = OpCode::from_u8(code).ok_or("unknown op code")?;
 
-    state.last_instruction = Some(disassemble(state.memory.clone(), state.pc)?);
-
-    if let Some(inst) = state.last_instruction {
-        println!("{:#X?}, {:?}", state.pc, inst.0);
-    }
+    //    state.last_instruction = Some(disassemble(state.memory.clone(), state.pc)?);
+    //
+    //    if let Some(inst) = state.last_instruction {
+    //        println!("{:#X?}, {:?}", state.pc, inst.0);
+    //    }
     let result = match op {
         NOP_0 | NOP_1 | NOP_2 | NOP_3 | NOP_4 | NOP_5 | NOP_6 | NOP_7 | NOP_8 | NOP_9 | NOP_10 => {
             state.advance()

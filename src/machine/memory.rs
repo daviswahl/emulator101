@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub(crate) struct Memory(Rc<RefCell<Vec<u8>>>);

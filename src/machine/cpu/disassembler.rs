@@ -4,9 +4,9 @@ use num::FromPrimitive;
 use std::fs;
 use std::path::Path;
 
+use machine::memory::Memory;
 use std::ops::Index;
 use std::ops::Range;
-use machine::memory::Memory;
 
 pub fn read_rom(p: &'static str) -> Result<Vec<u8>, &'static str> {
     let mut v = fs::read(Path::new(p)).map_err(|_| "failed to read file")?;
@@ -45,10 +45,7 @@ macro_rules! read_3 {
         Ok(($inst($iter.read($pos + 1)?, $iter.read($pos + 2)?), 2))
     };
     ($inst:path, $iter:ident,$pos:ident, $reg:expr) => {
-        Ok((
-            $inst($reg, $iter.read($pos + 1)?, $iter.read($pos + 2)?),
-            2,
-        ))
+        Ok(($inst($reg, $iter.read($pos + 1)?, $iter.read($pos + 2)?), 2))
     };
     ($inst:path, $iter:ident,$pos:ident, $reg:expr, $reg2:expr) => {
         Ok((
@@ -77,7 +74,7 @@ impl OpReader {
     }
 }
 
-pub (crate) fn disassemble_range(buf: Memory, r: Range<u16>) -> Result<String, String> {
+pub(crate) fn disassemble_range(buf: Memory, r: Range<u16>) -> Result<String, String> {
     let mut s = String::new();
     for i in r {
         s.push_str(format!("{:?}\n", disassemble(buf.clone(), i)?.0).as_ref());
@@ -85,7 +82,7 @@ pub (crate) fn disassemble_range(buf: Memory, r: Range<u16>) -> Result<String, S
     Ok(s)
 }
 
-pub (crate) fn disassemble(buf: Memory, pos: u16) -> Result<(Instruction, u16), String> {
+pub(crate) fn disassemble(buf: Memory, pos: u16) -> Result<(Instruction, u16), String> {
     use machine::cpu::ops::Register::*;
     let code = OpCode::from_u8(buf.read(pos as u16)?).ok_or("out of range")?;
     match code {
@@ -409,7 +406,10 @@ pub (crate) fn disassemble(buf: Memory, pos: u16) -> Result<(Instruction, u16), 
 }
 
 pub fn reader(buf: Vec<u8>) -> OpReader {
-    OpReader { buf: Memory::new(buf), pc: 0 }
+    OpReader {
+        buf: Memory::new(buf),
+        pc: 0,
+    }
 }
 
 #[cfg(test)]
@@ -451,7 +451,7 @@ mod tests {
         let buf = read_invaders();
         let mut r = reader(buf);
 
-        let p = Path::new("disassemble.txt");
+        let p = Path::new("roms/disassemble.txt");
 
         let result = r
             .read_all()

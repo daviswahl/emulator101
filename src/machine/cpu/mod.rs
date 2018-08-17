@@ -29,7 +29,9 @@ pub(crate) struct CPU {
     pub debug: bool,
 }
 
+use machine::cpu::emulate::Interrupt;
 use std::fmt;
+
 impl fmt::Debug for CPU {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(
@@ -54,6 +56,18 @@ impl fmt::Debug for CPU {
 }
 
 impl CPU {
+    pub fn process(
+        &mut self,
+        interrupt: fn(Interrupt) -> Result<(), String>,
+    ) -> Result<(), String> {
+        loop {
+            match emulate::emulate(self, interrupt) {
+                Ok(()) => (),
+                e @ Err(_) => return e,
+            }
+        }
+    }
+
     pub fn get_u8(&self, r: Register) -> u8 {
         match r {
             Register::A => self.a,
