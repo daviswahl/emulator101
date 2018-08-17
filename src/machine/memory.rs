@@ -1,32 +1,43 @@
-pub(crate) struct Memory(pub(crate) Vec<u8>);
+use std::rc::Rc;
+use std::cell::RefCell;
+
+#[derive(Clone)]
+pub(crate) struct Memory(Rc<RefCell<Vec<u8>>>);
 
 impl Memory {
-    pub fn raw(&self) -> &[u8] {
-        &self.0
+    pub fn new(vec: Vec<u8>) -> Self {
+        Memory(Rc::new(RefCell::new(vec)))
     }
+
     pub fn read(&self, offset: u16) -> Result<u8, String> {
         let offset = offset as usize;
-        if self.0.len() > offset {
-            Ok(self.0[offset])
+        let mem = self.0.borrow();
+        if mem.len() > offset {
+            Ok(mem[offset])
         } else {
             Err(format!(
                 "Tried to read out of range address: {}, len: {}",
                 offset,
-                self.0.len()
+                mem.len()
             ))
         }
     }
 
+    pub fn len(&self) -> u16 {
+        self.0.borrow().len() as u16
+    }
+
     pub fn write(&mut self, offset: u16, data: u8) -> Result<(), String> {
         let offset = offset as usize;
-        if self.0.len() > offset {
-            self.0[offset] = data;
+        let mut mem = self.0.borrow_mut();
+        if mem.len() > offset {
+            mem[offset] = data;
             Ok(())
         } else {
             Err(format!(
                 "Tried to set out of range address: {}, len: {}",
                 offset,
-                self.0.len()
+                mem.len()
             ))
         }
     }

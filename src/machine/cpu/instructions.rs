@@ -732,10 +732,12 @@ pub(crate) fn rar(state: &mut CPU) -> Result<(), String> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use machine::cpu::state;
+    use machine::cpu::*;
+    use machine::memory::Memory;
+
     #[test]
     fn test_rlc() {
-        let mut state = state::new_state(vec![0x0, 0x0]);
+        let mut state = new_state(Memory::new(vec![0x0, 0x0]));
         state.a = 0x0F2;
         rlc(&mut state).unwrap();
         assert_eq!(state.a, 0x0E5);
@@ -744,7 +746,7 @@ mod test {
 
     #[test]
     fn test_ral() {
-        let mut state = state::new_state(vec![0x0, 0x0]);
+        let mut state = new_state(Memory::new(vec![0x0, 0x0]));
         state.a = 0x0B5;
         ral(&mut state).unwrap();
         assert_eq!(state.a, 0x06a);

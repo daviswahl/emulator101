@@ -26,7 +26,7 @@ where
     let code = state.read(state.pc)?;
     let op = OpCode::from_u8(code).ok_or("unknown op code")?;
 
-    state.last_instruction = Some(disassemble(&state.memory, state.pc as usize)?);
+    state.last_instruction = Some(disassemble(state.memory.clone(), state.pc)?);
 
     if let Some(inst) = state.last_instruction {
         println!("{:#X?}, {:?}", state.pc, inst.0);

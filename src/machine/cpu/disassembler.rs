@@ -6,6 +6,7 @@ use std::path::Path;
 
 use std::ops::Index;
 use std::ops::Range;
+use machine::memory::Memory;
 
 pub fn read_rom(p: &'static str) -> Result<Vec<u8>, &'static str> {
     let mut v = fs::read(Path::new(p)).map_err(|_| "failed to read file")?;
@@ -14,8 +15,8 @@ pub fn read_rom(p: &'static str) -> Result<Vec<u8>, &'static str> {
 }
 
 pub struct OpReader {
-    buf: Vec<u8>,
-    pc: usize,
+    buf: Memory,
+    pc: u16,
 }
 
 macro_rules! read_1 {
@@ -28,44 +29,44 @@ macro_rules! read_1 {
 }
 macro_rules! read_2 {
     ($inst:path, $iter:ident, $pos:ident) => {
-        Ok(($inst(*$iter.index($pos + 1)), 1))
+        Ok(($inst($iter.read($pos + 1)?), 1))
     };
     ($inst:path, $iter:ident, $pos:ident, $reg:expr) => {
-        Ok(($inst($reg, *$iter.index($pos + 1)), 2))
+        Ok(($inst($reg, $iter.read($pos + 1)?), 2))
     };
 
     ($inst:path, $iter:ident,$pos:ident, $reg:expr, $reg2:expr) => {
-        Ok(($inst($reg, $reg2, *$iter.index($pos + 1)), 2))
+        Ok(($inst($reg, $reg2, $iter.read($pos + 1)?), 2))
     };
 }
 
 macro_rules! read_3 {
     ($inst:path, $iter:ident, $pos:ident) => {
-        Ok(($inst(*$iter.index($pos + 1), *$iter.index($pos + 2)), 2))
+        Ok(($inst($iter.read($pos + 1)?, $iter.read($pos + 2)?), 2))
     };
     ($inst:path, $iter:ident,$pos:ident, $reg:expr) => {
         Ok((
-            $inst($reg, *$iter.index($pos + 1), *$iter.index($pos + 2)),
+            $inst($reg, $iter.read($pos + 1)?, $iter.read($pos + 2)?),
             2,
         ))
     };
     ($inst:path, $iter:ident,$pos:ident, $reg:expr, $reg2:expr) => {
         Ok((
-            $inst($reg, $reg2, *$iter.index($pos + 1), *$iter.index($pos + 2)),
+            $inst($reg, $reg2, $iter.read($pos + 1)?, $iter.read($pos + 2)?),
             2,
         ))
     };
 }
 
 impl OpReader {
-    fn read_all(&mut self) -> Vec<(usize, Instruction)> {
+    fn read_all(&mut self) -> Vec<(u16, Instruction)> {
         let mut buf = vec![];
         loop {
             let pos = self.pc;
             self.pc += 1;
             if self.buf.len() > pos {
-                if let Ok((ins, size)) = disassemble(&self.buf, pos) {
-                    self.pc += size as usize;
+                if let Ok((ins, size)) = disassemble(self.buf.clone(), pos) {
+                    self.pc += size;
                     buf.push((pos, ins));
                 }
             } else {
@@ -76,17 +77,17 @@ impl OpReader {
     }
 }
 
-pub fn disassemble_range(buf: &[u8], r: Range<usize>) -> Result<String, String> {
+pub (crate) fn disassemble_range(buf: Memory, r: Range<u16>) -> Result<String, String> {
     let mut s = String::new();
     for i in r {
-        s.push_str(format!("{:?}\n", disassemble(buf, i)?.0).as_ref());
+        s.push_str(format!("{:?}\n", disassemble(buf.clone(), i)?.0).as_ref());
     }
     Ok(s)
 }
 
-pub fn disassemble(buf: &[u8], pos: usize) -> Result<(Instruction, usize), String> {
+pub (crate) fn disassemble(buf: Memory, pos: u16) -> Result<(Instruction, u16), String> {
     use machine::cpu::ops::Register::*;
-    let code = OpCode::from_u8(*buf.index(pos)).ok_or("out of range")?;
+    let code = OpCode::from_u8(buf.read(pos as u16)?).ok_or("out of range")?;
     match code {
         OpCode::NOP_0
         | OpCode::NOP_1
@@ -408,7 +409,7 @@ pub fn disassemble(buf: &[u8], pos: usize) -> Result<(Instruction, usize), Strin
 }
 
 pub fn reader(buf: Vec<u8>) -> OpReader {
-    OpReader { buf, pc: 0 }
+    OpReader { buf: Memory::new(buf), pc: 0 }
 }
 
 #[cfg(test)]

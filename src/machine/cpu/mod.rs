@@ -3,6 +3,7 @@ pub mod disassembler;
 use machine::cpu::disassembler::*;
 use machine::cpu::ops::*;
 mod ops;
+use machine::memory::Memory;
 
 mod emulate;
 pub mod instructions;
@@ -20,10 +21,10 @@ pub(crate) struct CPU {
     pub sp: u16,
     pub pc: u16,
     pub cc: ConditionCodes,
-    pub memory: Vec<u8>,
+    pub memory: Memory,
     pub int_enable: u8,
     pub iters: u64,
-    pub last_instruction: Option<(Instruction, usize)>,
+    pub last_instruction: Option<(Instruction, u16)>,
     pub break_on: Option<usize>,
     pub debug: bool,
 }
@@ -80,48 +81,22 @@ impl CPU {
     }
 
     pub fn read_1(&mut self) -> Result<u8, String> {
-        let pc = self.pc as usize;
-        if self.memory.len() >= pc {
-            self.pc += 1;
-            Ok(self.memory[pc])
-        } else {
-            Err(format!(
-                "Tried to read out of range address: {:#X?}, len: {:#X?}",
-                self.pc,
-                self.memory.len()
-            ))
-        }
+        let pc = self.pc;
+        let result = self.memory.read(pc + 1)?;
+        self.pc += 1;
+        Ok(result)
     }
 
     pub fn read(&self, offset: u16) -> Result<u8, String> {
-        let offset = offset as usize;
-        if self.memory.len() > offset {
-            Ok(self.memory[offset])
-        } else {
-            Err(format!(
-                "Tried to read out of range address: {}, len: {}",
-                offset,
-                self.memory.len()
-            ))
-        }
+        self.memory.read(offset)
     }
 
     pub fn write(&mut self, offset: u16, data: u8) -> Result<(), String> {
-        let offset = offset as usize;
-        if self.memory.len() > offset {
-            self.memory[offset] = data;
-            Ok(())
-        } else {
-            Err(format!(
-                "Tried to set out of range address: {}, len: {}",
-                offset,
-                self.memory.len()
-            ))
-        }
+        self.memory.write(offset, data)
     }
 
     pub fn advance(&mut self) -> Result<(), String> {
-        let pc = self.pc as usize;
+        let pc = self.pc;
         if self.memory.len() > pc + 1 {
             self.pc += 1;
             Ok(())
@@ -131,7 +106,7 @@ impl CPU {
     }
 }
 
-pub(crate) fn new_state(memory: Vec<u8>) -> CPU {
+pub(crate) fn new_state(memory: Memory) -> CPU {
     CPU {
         a: 0x0,
         b: 0x0,
@@ -213,7 +188,6 @@ impl ConditionCodes {
 mod tests {
     use super::*;
     use machine::cpu::emulate::*;
-    use machine::cpu::state::*;
 
     fn diag() -> Result<(), String> {
         let mut buf = read_rom("roms/cpudiag.bin").unwrap();
@@ -232,7 +206,7 @@ mod tests {
         memory[0x59E] = 0xc2;
         memory[0x59F] = 0x5;
 
-        let mut state = new_state(memory);
+        let mut state = new_state(Memory::new(memory));
         state.debug = true;
         loop {
             match emulate::emulate(&mut state, |_| Ok(())) {
@@ -244,7 +218,7 @@ mod tests {
 
     fn run() {
         let memory = read_rom("roms/invaders.rom").unwrap();
-        let mut state = new_state(memory);
+        let mut state = new_state(Memory::new(memory));
 
         loop {
             match emulate::emulate(&mut state, |_| Ok(())) {
@@ -270,7 +244,7 @@ mod tests {
         let mem: Vec<u8> = vec![code as u8];
 
         let reset = |mem: Vec<u8>| {
-            let mut state = new_state(mem);
+            let mut state = new_state(Memory::new(mem));
             state.a = 0;
             state.set_u8(reg, 1);
             state
@@ -309,7 +283,7 @@ mod tests {
         let mut mem: Vec<u8> = vec![0x0; 512];
         mem.insert(0, OpCode::ADD_M as u8);
         mem.insert(259, 200);
-        let mut state = new_state(mem);
+        let mut state = new_state(Memory::new(mem));
         state.h = 1;
         state.l = 3;
         state.a = 2;
@@ -328,7 +302,7 @@ mod tests {
         mem.insert(259, OpCode::ADI as u8);
         mem.insert(260, 200);
 
-        let mut state = new_state(mem);
+        let mut state = new_state(Memory::new(mem));
 
         run_pretty(&mut state);
         println!("{:?}", state);
@@ -352,7 +326,7 @@ mod tests {
         let mut mem: Vec<u8> = vec![128; 0x0];
         mem.insert(0, OpCode::ADI as u8);
         mem.insert(1, 2);
-        let mut state = new_state(mem);
+        let mut state = new_state(Memory::new(mem));
         state.a = 2;
         run_pretty(&mut state);
         assert_eq!(state.a, 4);
@@ -371,7 +345,7 @@ mod tests {
     #[test]
     fn test_lxi() {
         let rom = rom!(OpCode::LXI_SP, 1, 2);
-        let mut state = new_state(rom);
+        let mut state = new_state(Memory::new(rom));
         run_pretty(&mut state);
         assert_eq!(state.sp, 513);
     }
