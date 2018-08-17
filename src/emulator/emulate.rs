@@ -1,7 +1,6 @@
 use disassembler::disassemble;
 use emulator::instructions;
 use emulator::state::State;
-use emulator::*;
 use num::FromPrimitive;
 
 macro_rules! simple {
@@ -333,8 +332,6 @@ where
 
     println!("{:?}", state);
     if state.iters >= 37410 {
-        //pause();
-        //pause();
         //        println!(
         //            "{}",
         //            disassemble_range(&state.memory, state.pc as usize..(state.pc + 10) as usize)?
@@ -352,7 +349,7 @@ pub fn pause() {
     let mut stdout = io::stdout();
 
     // We want the cursor to stay at the end of the line, so we print without a newline and flush manually.
-    write!(stdout, "Press any key to continue...\n").unwrap();
+    writeln!(stdout, "Press any key to continue...").unwrap();
     stdout.flush().unwrap();
 
     // Read a single byte and discard

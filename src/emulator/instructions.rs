@@ -1,4 +1,3 @@
-use emulator::emulate::pause;
 use emulator::state::State;
 use ops::Register;
 use ops::Register::*;
@@ -7,11 +6,11 @@ pub(crate) fn add(reg: Register, state: &mut State) -> Result<(), String> {
     state.advance()?;
     let answer = match reg {
         Register::M => {
-            let offset = ((state.h as u16) << 8) | state.l as u16;
-            let m = state.read(offset)? as u16;
-            (state.a as u16) + m
+            let offset = (u16::from(state.h) << 8) | u16::from(state.l);
+            let m: u16 = state.read(offset)?.into();
+            u16::from(state.a) + m
         }
-        r => (state.a as u16) + (state.get_u8(r) as u16),
+        r => (u16::from(state.a)) + (u16::from(state.get_u8(r))),
     };
     state.cc.arith_flags(answer);
     state.a = (answer & 0xff) as u8;
@@ -22,11 +21,11 @@ pub(crate) fn sub(reg: Register, state: &mut State) -> Result<(), String> {
     state.advance()?;
     let answer = match reg {
         Register::M => {
-            let offset = ((state.h as u16) << 8) | state.l as u16;
-            let m = state.read(offset)? as u16;
-            (state.a as i16 - m as i16) as u16
+            let offset = ((u16::from(state.h)) << 8) | u16::from(state.l);
+            let m = i16::from(state.read(offset)?);
+            (i16::from(state.a) - m) as u16
         }
-        r => ((state.a as i16) - (state.get_u8(r) as i16)) as u16,
+        r => ((i16::from(state.a)) - (i16::from(state.get_u8(r)))) as u16,
     };
     state.cc.arith_flags(answer);
     state.a = (answer & 0xff) as u8;
@@ -35,9 +34,9 @@ pub(crate) fn sub(reg: Register, state: &mut State) -> Result<(), String> {
 
 pub(crate) fn aci(state: &mut State) -> Result<(), String> {
     state.advance()?;
-    let db = state.read_1()? as u16;
+    let db: u16 = state.read_1()?.into();
     let carry = if state.cc.cy { 1 } else { 0 };
-    let a = state.a as u16;
+    let a: u16 = state.a.into();
     let result = a.wrapping_add(db + carry);
     state.a = (result & 0xff) as u8;
     state.cc.arith_flags(result);
@@ -46,8 +45,8 @@ pub(crate) fn aci(state: &mut State) -> Result<(), String> {
 
 pub(crate) fn sui(state: &mut State) -> Result<(), String> {
     state.advance()?;
-    let db = state.read_1()? as u16;
-    let a = state.a as u16;
+    let db: u16 = state.read_1()?.into();
+    let a: u16 = state.a.into();
     let result = a.wrapping_sub(db);
     state.a = (result & 0xff) as u8;
     state.cc.arith_flags(result);
@@ -56,9 +55,9 @@ pub(crate) fn sui(state: &mut State) -> Result<(), String> {
 
 pub(crate) fn sbi(state: &mut State) -> Result<(), String> {
     state.advance()?;
-    let db = state.read_1()? as u16;
+    let db: u16 = state.read_1()?.into();
     let carry = if state.cc.cy { 1 } else { 0 };
-    let a = state.a as u16;
+    let a: u16 = state.a.into();
     let result = a.wrapping_sub(db + carry);
     state.a = (result & 0xff) as u8;
     state.cc.arith_flags(result);
@@ -70,11 +69,10 @@ pub(crate) fn sbb(reg: Register, state: &mut State) -> Result<(), String> {
     let answer = match reg {
         Register::M => {
             let offset = to_adr(state.h, state.l);
-            let m = state.read(offset)? + carry;
-
-            (state.a as i16 - m as i16) as u16
+            let m: i16 = state.read(offset)?.wrapping_add(carry).into();
+            (i16::from(state.a) - m) as u16
         }
-        r => (state.a as i16 - (state.get_u8(r) as i16 + (carry as i16))) as u16,
+        r => (i16::from(state.a) - i16::from(state.get_u8(r).wrapping_add(carry))) as u16,
     };
 
     state.cc.arith_flags(answer);
@@ -85,7 +83,7 @@ pub(crate) fn sbb(reg: Register, state: &mut State) -> Result<(), String> {
 pub(crate) fn adi(state: &mut State) -> Result<(), String> {
     state.advance()?;
     let val = state.read_1()?;
-    let answer: u16 = (state.a as u16) + (val as u16);
+    let answer = (u16::from(state.a)) + u16::from(val);
 
     state.cc.arith_flags(answer);
     state.a = (answer & 0xff) as u8;
@@ -96,16 +94,16 @@ pub(crate) fn inr(reg: Register, state: &mut State) -> Result<(), String> {
     state.advance()?;
     let answer = match reg {
         Register::M => {
-            let offset = ((state.h as u16) << 8) | state.l as u16;
-            let m = state.read(offset)? as u16;
+            let offset = ((u16::from(state.h)) << 8) | u16::from(state.l);
+            let m: u16 = state.read(offset)?.into();
             let result = m + 1;
             write_hl(state, (result & 0xff) as u8)?;
             result as u16
         }
         r => {
-            let result = state.get_u8(r) + 1;
+            let result = u16::from(state.get_u8(r)) + 1;
             state.set_u8(reg, (result & 0xff) as u8);
-            result as u16
+            result
         }
     };
     state.cc.arith_flags(answer);
@@ -114,8 +112,8 @@ pub(crate) fn inr(reg: Register, state: &mut State) -> Result<(), String> {
 
 pub(crate) fn ani(state: &mut State) -> Result<(), String> {
     state.advance()?;
-    let data = state.read_1()? as u16;
-    let answer = (state.a as u16) & data;
+    let data: u16 = state.read_1()?.into();
+    let answer = (u16::from(state.a)) & data;
 
     state.cc.arith_flags(answer);
     state.a = (answer & 0xff) as u8;
@@ -126,8 +124,8 @@ pub(crate) fn lxi(reg: Register, state: &mut State) -> Result<(), String> {
     state.advance()?;
     match reg {
         SP => {
-            let l = state.read_1()? as u16;
-            let h = state.read_1()? as u16;
+            let l: u16 = state.read_1()?.into();
+            let h: u16 = state.read_1()?.into();
             state.sp = h << 8 | l;
         }
         B => {
@@ -182,7 +180,8 @@ pub(crate) fn dad(reg: Register, state: &mut State) -> Result<(), String> {
 pub(crate) fn lda(state: &mut State) -> Result<(), String> {
     state.advance()?;
     let adr = read_2_address(state)?;
-    Ok(state.a = state.read(adr)?)
+    state.a = state.read(adr)?;
+    Ok(())
 }
 
 pub(crate) fn sta(state: &mut State) -> Result<(), String> {
@@ -199,7 +198,7 @@ pub(crate) fn lhld(state: &mut State) -> Result<(), String> {
     let h = state.read_1()?;
     let adr = to_adr(h, l);
     state.l = state.read(adr)?;
-    state.h = state.read((adr + 1))?;
+    state.h = state.read(adr + 1)?;
     Ok(())
 }
 
@@ -240,12 +239,7 @@ pub(crate) fn xthl(state: &mut State) -> Result<(), String> {
 
 pub(crate) fn cmc(state: &mut State) -> Result<(), String> {
     state.advance()?;
-    let cy = if int_bool(state.cc.cy) ^ 1 == 1 {
-        true
-    } else {
-        false
-    };
-    state.cc.cy = cy;
+    state.cc.cy = int_bool(state.cc.cy) ^ 1 == 1;
     Ok(())
 }
 pub(crate) fn ldax(reg: Register, state: &mut State) -> Result<(), String> {
@@ -436,14 +430,16 @@ pub(crate) fn sphl(state: &mut State) -> Result<(), String> {
     state.advance()?;
     let h = state.h;
     let l = state.l;
-    Ok(state.sp = to_adr(h, l))
+    state.sp = to_adr(h, l);
+    Ok(())
 }
 
 pub(crate) fn pchl(state: &mut State) -> Result<(), String> {
     state.advance()?;
     let h = state.h;
     let l = state.l;
-    Ok(state.pc = to_adr(h, l))
+    state.pc = to_adr(h, l);
+    Ok(())
 }
 
 pub(crate) fn pop(reg: Register, state: &mut State) -> Result<(), String> {
@@ -469,7 +465,7 @@ pub(crate) fn pop(reg: Register, state: &mut State) -> Result<(), String> {
             state.cc.z = 0x01 == (psw & 0x01);
             state.cc.s = 0x02 == (psw & 0x02);
             state.cc.p = 0x04 == (psw & 0x04);
-            state.cc.cy = 0x05 == (psw & 0x08);
+            state.cc.cy = 0x08 == (psw & 0x08);
             state.cc.ac = 0x10 == (psw & 0x10);
         }
         _ => unimplemented!("unimplemented inx: {:?}", reg),
@@ -502,9 +498,9 @@ pub(crate) fn log<F: Fn(u16, u16) -> u16>(
             unimplemented!("unimplemented tmp: {:?}", reg);
         }
 
-        M => op(state.a as u16, read_hl(state)? as u16),
+        M => op(state.a.into(), read_hl(state)?.into()),
 
-        r => op(state.a as u16, state.get_u8(*r) as u16),
+        r => op(state.a.into(), state.get_u8(*r).into()),
     };
     state.a = (answer & 0xff) as u8;
     state.cc.logic_flags(answer as u16);
@@ -513,8 +509,8 @@ pub(crate) fn log<F: Fn(u16, u16) -> u16>(
 
 pub(crate) fn logi<F: Fn(u16, u16) -> u16>(state: &mut State, op: F) -> Result<(), String> {
     state.advance()?;
-    let val = state.read_1()? as u16;
-    let answer = op(state.a as u16, val);
+    let val = state.read_1()?.into();
+    let answer = op(state.a.into(), val);
     state.a = (answer & 0xff) as u8;
     state.cc.logic_flags(answer as u16);
     Ok(())
@@ -525,11 +521,11 @@ pub(crate) fn adc(reg: Register, state: &mut State) -> Result<(), String> {
     let carry = if state.cc.cy { 1 } else { 0 };
     let answer = match reg {
         Register::M => {
-            let offset = ((state.h as u16) << 8) | state.l as u16;
-            let m = state.read(offset)? as u16;
-            (state.a as u16) + m + carry
+           let offset = (u16::from(state.h) << 8) | u16::from(state.l);
+           let m: u16 = state.read(offset)?.wrapping_add(carry).into();
+           u16::from(state.a) + m
         }
-        r => (state.a as u16) + (state.get_u8(r) as u16) + carry,
+        r => u16::from(state.a) + u16::from(state.get_u8(r).wrapping_add(carry)),
     };
 
     state.cc.arith_flags(answer);
@@ -539,17 +535,16 @@ pub(crate) fn adc(reg: Register, state: &mut State) -> Result<(), String> {
 
 pub(crate) fn cpi(state: &mut State) -> Result<(), String> {
     state.advance()?;
-    let immediate = state.read_1()? as u16;
-    let a = state.a as u16;
+    let immediate: u16 = state.read_1()?.into();
+    let a: u16 = state.a.into();
     let x = a.wrapping_sub(immediate);
-    //println!("immediate: {}, a: {}, x: {}", immediate, a, x);
     state.cc.arith_flags(x as u16);
     Ok(())
 }
 
 pub(crate) fn cmp(reg: Register, state: &mut State) -> Result<(), String> {
     state.advance()?;
-    let a = state.a as i16;
+    let a: i16 = state.a.into();
     let x = match &reg {
         SP | PSW => {
             unimplemented!("unimplemented tmp: {:?}", reg);
@@ -557,11 +552,11 @@ pub(crate) fn cmp(reg: Register, state: &mut State) -> Result<(), String> {
 
         M => {
             let val = read_hl(state)?;
-            ((a - val as i16) & 0xff) as u16
+            ((a - i16::from(val)) & 0xff) as u16
         }
         r => {
             let val = state.get_u8(*r);
-            ((a - val as i16) & 0xff) as u16
+            ((a - i16::from(val)) & 0xff) as u16
         }
     };
     state.cc.sign(x);
@@ -572,16 +567,16 @@ pub(crate) fn dcr(reg: Register, state: &mut State) -> Result<(), String> {
     state.advance()?;
     let answer = match reg {
         Register::M => {
-            let offset = ((state.h as u16) << 8) | state.l as u16;
-            let m = state.read(offset)? as u16;
+            let offset = (u16::from(state.h) << 8) | u16::from(state.l);
+            let m: u16 = state.read(offset)?.into();
             let result = m as i16 - 1;
             write_hl(state, (result & 0xff) as u8)?;
             result as u16
         }
         r => {
-            let result = ((state.get_u8(r) as i16 - 1) & 0xff) as u8;
+            let result = ((i16::from(state.get_u8(r)) - 1) & 0xff) as u8;
             state.set_u8(reg, result);
-            result as u16
+            u16::from(result)
         }
     };
     state.cc.arith_flags(answer);
@@ -594,7 +589,7 @@ pub(crate) fn ret_if<F: Fn(&State) -> bool>(state: &mut State, cond: F) -> Resul
         let sp = state.sp;
         let l = state.read(sp)?;
         let h = state.read(sp.wrapping_add(1))?;
-        state.pc = (((h as u16) << 8) | l as u16);
+        state.pc = (u16::from(h) << 8) | u16::from(l);
         state.sp = sp.wrapping_add(2);
     }
     Ok(())
@@ -610,7 +605,7 @@ pub(crate) fn jmp_if<F: Fn(&State) -> bool>(state: &mut State, f: F) -> Result<(
             Err("exit")?
         }
 
-        let offset = (h as u16) << 8 | l as u16;
+        let offset = u16::from(h) << 8 | u16::from(l);
         // println!("jumping to: {:#X}", offset);
         state.pc = offset;
     } else {
@@ -633,9 +628,9 @@ pub(crate) fn call(state: &mut State) -> Result<(), String> {
     let l = state.read_1()?;
     let h = state.read_1()?;
 
-    if state.debug && 5 == (h as u16) << 8 | l as u16 {
+    if state.debug && 5 == (u16::from(h) << 8 | u16::from(l)) {
         if state.c == 9 {
-            let mut offset = (((state.d as u16) << 8 | state.e as u16) + 3);
+            let mut offset = (u16::from(state.d) << 8 | u16::from(state.e)) + 3;
             let mut buf = String::new();
             while let Ok(s) = state.read(offset) {
                 if s == b'$' {
@@ -651,7 +646,7 @@ pub(crate) fn call(state: &mut State) -> Result<(), String> {
             print!("{:#X?}", state.e.to_ascii_uppercase());
         }
         Ok(())
-    } else if state.debug && 0 == ((h as u16) << 8) | l as u16 {
+    } else if state.debug && 0 == (u16::from(h) << 8) | u16::from(l) {
         Err("exit".to_string())
     } else {
         let ret = state.pc as u16;
@@ -669,11 +664,11 @@ pub(crate) fn call(state: &mut State) -> Result<(), String> {
 }
 
 fn wrapping<F: Fn(i16) -> i16>(operand: u8, op: F) -> u8 {
-    (op(operand as i16) & 0xff) as u8
+    (op(operand.into()) & 0xff) as u8
 }
 
 fn to_adr(h: u8, l: u8) -> u16 {
-    ((h as u16) << 8 | l as u16)
+    ((u16::from(h)) << 8 | u16::from(l))
 }
 
 fn split_u16(b: u16) -> (u8, u8) {
@@ -684,8 +679,8 @@ fn split_u16(b: u16) -> (u8, u8) {
 }
 
 fn read_2_address(state: &mut State) -> Result<u16, String> {
-    let l = state.read_1()? as u16;
-    let h = state.read_1()? as u16;
+    let l: u16 = state.read_1()?.into();
+    let h: u16 = state.read_1()?.into();
     Ok(h << 8 | l)
 }
 

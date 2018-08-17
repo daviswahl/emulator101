@@ -1,10 +1,9 @@
 use disassembler::*;
 use ops::*;
 
-mod state;
-use self::state::*;
 mod emulate;
 pub mod instructions;
+mod state;
 
 pub fn diag() -> Result<(), String> {
     let mut buf = read_rom("roms/cpudiag.bin").unwrap();
@@ -55,10 +54,11 @@ pub type MMap = HashMap<u16, Instruction>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use emulator::emulate::emulate;
+    use emulator::emulate::*;
+    use emulator::state::*;
 
     fn run_pretty(state: &mut State) -> () {
-        match emulate(state) {
+        match emulate(state, |_| Ok(())) {
             Ok(_) => (),
             Err(e) => {
                 println!("{}", e);

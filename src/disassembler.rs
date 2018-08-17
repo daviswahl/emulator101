@@ -76,7 +76,7 @@ impl OpReader {
     }
 }
 
-pub fn disassemble_range(buf: &Vec<u8>, r: Range<usize>) -> Result<String, String> {
+pub fn disassemble_range(buf: &[u8], r: Range<usize>) -> Result<String, String> {
     let mut s = String::new();
     for i in r {
         s.push_str(format!("{:?}\n", disassemble(buf, i)?.0).as_ref());
@@ -84,7 +84,7 @@ pub fn disassemble_range(buf: &Vec<u8>, r: Range<usize>) -> Result<String, Strin
     Ok(s)
 }
 
-pub fn disassemble(buf: &Vec<u8>, pos: usize) -> Result<(Instruction, usize), String> {
+pub fn disassemble(buf: &[u8], pos: usize) -> Result<(Instruction, usize), String> {
     use ops::Register::*;
     let code = OpCode::from_u8(*buf.index(pos)).ok_or("out of range")?;
     match code {
@@ -408,7 +408,7 @@ pub fn disassemble(buf: &Vec<u8>, pos: usize) -> Result<(Instruction, usize), St
 }
 
 pub fn reader(buf: Vec<u8>) -> OpReader {
-    OpReader { buf: buf, pc: 0 }
+    OpReader { buf, pc: 0 }
 }
 
 #[cfg(test)]
@@ -448,7 +448,7 @@ mod tests {
             .read_all()
             .into_iter()
             .map(|(pos, ins)| format!("{:#X?} {:?}\n", pos, ins));
-        fs::write(p, result.collect::<String>());
+        fs::write(p, result.collect::<String>()).unwrap();
     }
 
     #[test]
@@ -462,6 +462,6 @@ mod tests {
             .read_all()
             .into_iter()
             .map(|(pos, ins)| format!("{:#X?} {:?}\n", pos, ins));
-        fs::write(p, result.collect::<String>());
+        fs::write(p, result.collect::<String>()).unwrap();
     }
 }

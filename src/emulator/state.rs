@@ -23,10 +23,6 @@ pub(crate) struct State {
 use std::fmt;
 impl fmt::Debug for State {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        let li = self
-            .last_instruction
-            .as_ref()
-            .map(|(ins, pos)| format!("last\t{:#X?} {:?}", pos, ins));
         write!(
             f,
             "
@@ -119,7 +115,8 @@ impl State {
     pub fn advance(&mut self) -> Result<(), String> {
         let pc = self.pc as usize;
         if self.memory.len() > pc + 1 {
-            Ok(self.pc += 1)
+            self.pc += 1;
+            Ok(())
         } else {
             Err(format!("Cannot advance out of range: {}", self.pc + 1))
         }
@@ -178,14 +175,14 @@ impl ConditionCodes {
             if x & 0x1 == 1 {
                 p += 1
             }
-            x = x >> 1;
+            x >>= 1;
             i += 1;
         }
         self.p = 0 == p & 0x1
     }
 
     pub fn zero(&mut self, v: u16) {
-        self.z = v & 0xff == 0;
+        self.z = v.trailing_zeros() >= 8
     }
 
     pub fn sign(&mut self, v: u16) {
