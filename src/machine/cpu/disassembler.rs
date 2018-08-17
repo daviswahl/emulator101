@@ -1,4 +1,4 @@
-use ops::*;
+use machine::cpu::ops::*;
 
 use num::FromPrimitive;
 use std::fs;
@@ -85,7 +85,7 @@ pub fn disassemble_range(buf: &[u8], r: Range<usize>) -> Result<String, String> 
 }
 
 pub fn disassemble(buf: &[u8], pos: usize) -> Result<(Instruction, usize), String> {
-    use ops::Register::*;
+    use machine::cpu::ops::Register::*;
     let code = OpCode::from_u8(*buf.index(pos)).ok_or("out of range")?;
     match code {
         OpCode::NOP_0
@@ -423,7 +423,6 @@ mod tests {
     fn test_read_rom() {
         assert_eq!(read_rom("roms/invaders.rom").unwrap().pop().unwrap(), 0x00);
     }
-
 
     #[test]
     fn test_diag() {

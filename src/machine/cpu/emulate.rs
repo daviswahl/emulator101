@@ -1,6 +1,6 @@
-use cpu::disassembler::disassemble;
-use cpu::instructions;
-use cpu::state::State;
+use machine::cpu::disassembler::disassemble;
+use machine::cpu::instructions;
+use machine::cpu::CPU;
 use num::FromPrimitive;
 
 macro_rules! simple {
@@ -9,20 +9,20 @@ macro_rules! simple {
         Ok($e)
     }};
 }
-use ops::OpCode;
+use machine::cpu::ops::OpCode;
 
 pub(crate) struct Interrupt<'a> {
     code: OpCode,
-    state: &'a mut State,
+    state: &'a mut CPU,
     d: u8,
 }
 
-pub(crate) fn emulate<F>(state: &mut State, interrupt: F) -> Result<(), String>
+pub(crate) fn emulate<F>(state: &mut CPU, interrupt: F) -> Result<(), String>
 where
     F: Fn(Interrupt) -> Result<(), String>,
 {
-    use ops::OpCode::*;
-    use ops::Register::*;
+    use machine::cpu::ops::OpCode::*;
+    use machine::cpu::ops::Register::*;
     let code = state.read(state.pc)?;
     let op = OpCode::from_u8(code).ok_or("unknown op code")?;
 

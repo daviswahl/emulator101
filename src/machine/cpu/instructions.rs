@@ -1,8 +1,8 @@
-use cpu::state::State;
-use ops::Register;
-use ops::Register::*;
+use machine::cpu::ops::Register;
+use machine::cpu::ops::Register::*;
+use machine::cpu::CPU;
 
-pub(crate) fn add(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn add(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let answer = match reg {
         Register::M => {
@@ -17,7 +17,7 @@ pub(crate) fn add(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn sub(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn sub(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let answer = match reg {
         Register::M => {
@@ -32,7 +32,7 @@ pub(crate) fn sub(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn aci(state: &mut State) -> Result<(), String> {
+pub(crate) fn aci(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let db: u16 = state.read_1()?.into();
     let carry = if state.cc.cy { 1 } else { 0 };
@@ -43,7 +43,7 @@ pub(crate) fn aci(state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn sui(state: &mut State) -> Result<(), String> {
+pub(crate) fn sui(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let db: u16 = state.read_1()?.into();
     let a: u16 = state.a.into();
@@ -53,7 +53,7 @@ pub(crate) fn sui(state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn sbi(state: &mut State) -> Result<(), String> {
+pub(crate) fn sbi(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let db: u16 = state.read_1()?.into();
     let carry = if state.cc.cy { 1 } else { 0 };
@@ -63,7 +63,7 @@ pub(crate) fn sbi(state: &mut State) -> Result<(), String> {
     state.cc.arith_flags(result);
     Ok(())
 }
-pub(crate) fn sbb(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn sbb(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let carry = if state.cc.cy { 1 } else { 0 };
     let answer = match reg {
@@ -80,7 +80,7 @@ pub(crate) fn sbb(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn adi(state: &mut State) -> Result<(), String> {
+pub(crate) fn adi(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let val = state.read_1()?;
     let answer = (u16::from(state.a)) + u16::from(val);
@@ -90,7 +90,7 @@ pub(crate) fn adi(state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn inr(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn inr(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let answer = match reg {
         Register::M => {
@@ -110,7 +110,7 @@ pub(crate) fn inr(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn ani(state: &mut State) -> Result<(), String> {
+pub(crate) fn ani(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let data: u16 = state.read_1()?.into();
     let answer = (u16::from(state.a)) & data;
@@ -120,7 +120,7 @@ pub(crate) fn ani(state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn lxi(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn lxi(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     match reg {
         SP => {
@@ -145,7 +145,7 @@ pub(crate) fn lxi(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn dad(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn dad(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let answer = match reg {
         SP => {
@@ -177,14 +177,14 @@ pub(crate) fn dad(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn lda(state: &mut State) -> Result<(), String> {
+pub(crate) fn lda(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let adr = read_2_address(state)?;
     state.a = state.read(adr)?;
     Ok(())
 }
 
-pub(crate) fn sta(state: &mut State) -> Result<(), String> {
+pub(crate) fn sta(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let a = state.a;
     let adr = read_2_address(state)?;
@@ -192,7 +192,7 @@ pub(crate) fn sta(state: &mut State) -> Result<(), String> {
 }
 
 // 	L <- (adr); H<-(adr+1)
-pub(crate) fn lhld(state: &mut State) -> Result<(), String> {
+pub(crate) fn lhld(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let l = state.read_1()?;
     let h = state.read_1()?;
@@ -203,7 +203,7 @@ pub(crate) fn lhld(state: &mut State) -> Result<(), String> {
 }
 
 // 	(adr) <-L; (adr+1)<-H
-pub(crate) fn shld(state: &mut State) -> Result<(), String> {
+pub(crate) fn shld(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let l = state.read_1()?;
     let h = state.read_1()?;
@@ -213,7 +213,7 @@ pub(crate) fn shld(state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn xchg(state: &mut State) -> Result<(), String> {
+pub(crate) fn xchg(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let d = state.d;
     let e = state.e;
@@ -224,7 +224,7 @@ pub(crate) fn xchg(state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn xthl(state: &mut State) -> Result<(), String> {
+pub(crate) fn xthl(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let h = state.h;
     let l = state.l;
@@ -237,12 +237,12 @@ pub(crate) fn xthl(state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn cmc(state: &mut State) -> Result<(), String> {
+pub(crate) fn cmc(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     state.cc.cy = int_bool(state.cc.cy) ^ 1 == 1;
     Ok(())
 }
-pub(crate) fn ldax(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn ldax(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     match reg {
         B => {
@@ -260,7 +260,7 @@ pub(crate) fn ldax(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn stax(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn stax(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     match &reg {
         D => {
@@ -278,7 +278,7 @@ pub(crate) fn stax(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn mov(reg: Register, reg2: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn mov(reg: Register, reg2: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     match (&reg, &reg2) {
         (M, r) => {
@@ -300,7 +300,7 @@ pub(crate) fn mov(reg: Register, reg2: Register, state: &mut State) -> Result<()
     Ok(())
 }
 
-pub(crate) fn mvi(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn mvi(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     match &reg {
         SP | PSW => {
@@ -322,7 +322,7 @@ pub(crate) fn mvi(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn inx(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn inx(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     match &reg {
         B => {
@@ -351,7 +351,7 @@ pub(crate) fn inx(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn dcx(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn dcx(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     match &reg {
         B => {
@@ -380,7 +380,7 @@ pub(crate) fn dcx(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn push(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn push(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let sp = state.sp;
     match &reg {
@@ -426,7 +426,7 @@ fn int_bool(b: bool) -> u8 {
     }
 }
 
-pub(crate) fn sphl(state: &mut State) -> Result<(), String> {
+pub(crate) fn sphl(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let h = state.h;
     let l = state.l;
@@ -434,7 +434,7 @@ pub(crate) fn sphl(state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn pchl(state: &mut State) -> Result<(), String> {
+pub(crate) fn pchl(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let h = state.h;
     let l = state.l;
@@ -442,7 +442,7 @@ pub(crate) fn pchl(state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn pop(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn pop(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let sp = state.sp;
     match &reg {
@@ -489,7 +489,7 @@ pub(crate) fn pop(reg: Register, state: &mut State) -> Result<(), String> {
 
 pub(crate) fn log<F: Fn(u16, u16) -> u16>(
     reg: Register,
-    state: &mut State,
+    state: &mut CPU,
     op: F,
 ) -> Result<(), String> {
     state.advance()?;
@@ -507,7 +507,7 @@ pub(crate) fn log<F: Fn(u16, u16) -> u16>(
     Ok(())
 }
 
-pub(crate) fn logi<F: Fn(u16, u16) -> u16>(state: &mut State, op: F) -> Result<(), String> {
+pub(crate) fn logi<F: Fn(u16, u16) -> u16>(state: &mut CPU, op: F) -> Result<(), String> {
     state.advance()?;
     let val = state.read_1()?.into();
     let answer = op(state.a.into(), val);
@@ -516,14 +516,14 @@ pub(crate) fn logi<F: Fn(u16, u16) -> u16>(state: &mut State, op: F) -> Result<(
     Ok(())
 }
 
-pub(crate) fn adc(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn adc(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let carry = if state.cc.cy { 1 } else { 0 };
     let answer = match reg {
         Register::M => {
-           let offset = (u16::from(state.h) << 8) | u16::from(state.l);
-           let m: u16 = state.read(offset)?.wrapping_add(carry).into();
-           u16::from(state.a) + m
+            let offset = (u16::from(state.h) << 8) | u16::from(state.l);
+            let m: u16 = state.read(offset)?.wrapping_add(carry).into();
+            u16::from(state.a) + m
         }
         r => u16::from(state.a) + u16::from(state.get_u8(r).wrapping_add(carry)),
     };
@@ -533,7 +533,7 @@ pub(crate) fn adc(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn cpi(state: &mut State) -> Result<(), String> {
+pub(crate) fn cpi(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let immediate: u16 = state.read_1()?.into();
     let a: u16 = state.a.into();
@@ -542,7 +542,7 @@ pub(crate) fn cpi(state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn cmp(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn cmp(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let a: i16 = state.a.into();
     let x = match &reg {
@@ -563,7 +563,7 @@ pub(crate) fn cmp(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn dcr(reg: Register, state: &mut State) -> Result<(), String> {
+pub(crate) fn dcr(reg: Register, state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let answer = match reg {
         Register::M => {
@@ -583,7 +583,7 @@ pub(crate) fn dcr(reg: Register, state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn ret_if<F: Fn(&State) -> bool>(state: &mut State, cond: F) -> Result<(), String> {
+pub(crate) fn ret_if<F: Fn(&CPU) -> bool>(state: &mut CPU, cond: F) -> Result<(), String> {
     state.advance()?;
     if cond(state) {
         let sp = state.sp;
@@ -595,7 +595,7 @@ pub(crate) fn ret_if<F: Fn(&State) -> bool>(state: &mut State, cond: F) -> Resul
     Ok(())
 }
 
-pub(crate) fn jmp_if<F: Fn(&State) -> bool>(state: &mut State, f: F) -> Result<(), String> {
+pub(crate) fn jmp_if<F: Fn(&CPU) -> bool>(state: &mut CPU, f: F) -> Result<(), String> {
     state.advance()?;
     if f(state) {
         let l = state.read_1()?;
@@ -614,7 +614,7 @@ pub(crate) fn jmp_if<F: Fn(&State) -> bool>(state: &mut State, f: F) -> Result<(
     Ok(())
 }
 
-pub(crate) fn call_if<F: Fn(&State) -> bool>(state: &mut State, cond: F) -> Result<(), String> {
+pub(crate) fn call_if<F: Fn(&CPU) -> bool>(state: &mut CPU, cond: F) -> Result<(), String> {
     if cond(state) {
         call(state)
     } else {
@@ -623,7 +623,7 @@ pub(crate) fn call_if<F: Fn(&State) -> bool>(state: &mut State, cond: F) -> Resu
     }
 }
 
-pub(crate) fn call(state: &mut State) -> Result<(), String> {
+pub(crate) fn call(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let l = state.read_1()?;
     let h = state.read_1()?;
@@ -678,25 +678,25 @@ fn split_u16(b: u16) -> (u8, u8) {
     (high as u8, low as u8)
 }
 
-fn read_2_address(state: &mut State) -> Result<u16, String> {
+fn read_2_address(state: &mut CPU) -> Result<u16, String> {
     let l: u16 = state.read_1()?.into();
     let h: u16 = state.read_1()?.into();
     Ok(h << 8 | l)
 }
 
-fn read_hl(state: &mut State) -> Result<u8, String> {
+fn read_hl(state: &mut CPU) -> Result<u8, String> {
     let h = state.h;
     let l = state.l;
     state.read(to_adr(h, l))
 }
 
-fn write_hl(state: &mut State, data: u8) -> Result<(), String> {
+fn write_hl(state: &mut CPU, data: u8) -> Result<(), String> {
     let h = state.h;
     let l = state.l;
     state.write(to_adr(h, l), data)
 }
 
-pub(crate) fn rlc(state: &mut State) -> Result<(), String> {
+pub(crate) fn rlc(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let x = state.a;
     state.a = (x << 1) | (x >> 7);
@@ -704,7 +704,7 @@ pub(crate) fn rlc(state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn ral(state: &mut State) -> Result<(), String> {
+pub(crate) fn ral(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let x = state.a;
     let carry = if state.cc.cy { 1 } else { 0 };
@@ -713,7 +713,7 @@ pub(crate) fn ral(state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn rrc(state: &mut State) -> Result<(), String> {
+pub(crate) fn rrc(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let x = state.a;
     state.a = ((x & 1) << 7) | (x >> 1);
@@ -721,7 +721,7 @@ pub(crate) fn rrc(state: &mut State) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn rar(state: &mut State) -> Result<(), String> {
+pub(crate) fn rar(state: &mut CPU) -> Result<(), String> {
     state.advance()?;
     let x = state.a;
     let carry = if state.cc.cy { 1 } else { 0 };
@@ -732,7 +732,7 @@ pub(crate) fn rar(state: &mut State) -> Result<(), String> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use cpu::state;
+    use machine::cpu::state;
     #[test]
     fn test_rlc() {
         let mut state = state::new_state(vec![0x0, 0x0]);
