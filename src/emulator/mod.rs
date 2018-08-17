@@ -26,7 +26,7 @@ pub fn diag() -> Result<(), String> {
     let mut state = state::new_state(memory);
     state.debug = true;
     loop {
-        match emulate::emulate(&mut state) {
+        match emulate::emulate(&mut state, |_| Ok(())) {
             Ok(_) => (),
             e @ Err(_) => return e,
         }
@@ -38,7 +38,7 @@ pub fn run() {
     let mut state = state::new_state(memory);
 
     loop {
-        match emulate::emulate(&mut state) {
+        match emulate::emulate(&mut state, |_| Ok(())) {
             Ok(()) => (),
             Err(s) => {
                 println!("{:}", s);

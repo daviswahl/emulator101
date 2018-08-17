@@ -10,7 +10,18 @@ macro_rules! simple {
         Ok($e)
     }};
 }
-pub(crate) fn emulate(state: &mut State) -> Result<(), String> {
+use ops::OpCode;
+
+pub(crate) struct Interrupt<'a> {
+    code: OpCode,
+    state: &'a mut State,
+    d: u8,
+}
+
+pub(crate) fn emulate<F>(state: &mut State, interrupt: F) -> Result<(), String>
+where
+    F: Fn(Interrupt) -> Result<(), String>,
+{
     use ops::OpCode::*;
     use ops::Register::*;
     let code = state.read(state.pc)?;
@@ -302,13 +313,14 @@ pub(crate) fn emulate(state: &mut State) -> Result<(), String> {
         SPHL => instructions::sphl(state),
         PCHL => instructions::pchl(state),
 
-        IN => {
+        IN | OUT => {
             state.advance()?;
-            state.advance()
-        }
-        OUT => {
-            state.advance()?;
-            state.advance()
+            let port = state.read_1()?;
+            interrupt(Interrupt {
+                d: port,
+                code: op,
+                state,
+            })
         }
 
         EI => simple!(state, state.int_enable = 1),
