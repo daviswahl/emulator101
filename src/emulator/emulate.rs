@@ -301,13 +301,26 @@ pub(crate) fn emulate(state: &mut State) -> Result<(), String> {
 
         SPHL => instructions::sphl(state),
         PCHL => instructions::pchl(state),
+
+        IN => {
+            state.advance()?;
+            state.advance()
+        }
+        OUT => {
+            state.advance()?;
+            state.advance()
+        }
+
+        EI => simple!(state, state.int_enable = 1),
+        DI => simple!(state, state.int_enable = 0),
+
         s => Err(format!("unimplemented op {:?}", s)),
     };
 
     state.iters += 1;
 
     println!("{:?}", state);
-    if state.iters >= 546 {
+    if state.iters >= 37410 {
         //pause();
         //pause();
         //        println!(
@@ -316,7 +329,7 @@ pub(crate) fn emulate(state: &mut State) -> Result<(), String> {
         //        );
         // pause();
     }
-    result.map_err(|e| format!("{:?}\n{:?}", e, state))
+    result.map_err(|e| e)
 }
 
 pub fn pause() {

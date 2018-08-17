@@ -417,8 +417,6 @@ pub(crate) fn push(reg: Register, state: &mut State) -> Result<(), String> {
                 | int_bool(state.cc.ac) << 4;
             state.write(sp.wrapping_sub(1), a)?;
             state.write(sp.wrapping_sub(2), psw)?;
-            println!("psw: {:#b}, cc: {:?}", psw, state.cc);
-            pause();
         }
         _ => unimplemented!("unimplemented inx: {:?}", reg),
     };
@@ -453,16 +451,16 @@ pub(crate) fn pop(reg: Register, state: &mut State) -> Result<(), String> {
     let sp = state.sp;
     match &reg {
         B => {
-            state.c = state.read(sp.wrapping_add(1))?;
-            state.b = state.read(sp)?;
+            state.b = state.read(sp.wrapping_add(1))?;
+            state.c = state.read(sp)?;
         }
         D => {
-            state.e = state.read(sp.wrapping_add(1))?;
-            state.d = state.read(sp)?;
+            state.d = state.read(sp.wrapping_add(1))?;
+            state.e = state.read(sp)?;
         }
         H => {
-            state.l = state.read(sp.wrapping_add(1))?;
-            state.h = state.read(sp)?;
+            state.h = state.read(sp.wrapping_add(1))?;
+            state.l = state.read(sp)?;
         }
         PSW => {
             let sp = state.sp;
@@ -473,8 +471,6 @@ pub(crate) fn pop(reg: Register, state: &mut State) -> Result<(), String> {
             state.cc.p = 0x04 == (psw & 0x04);
             state.cc.cy = 0x05 == (psw & 0x08);
             state.cc.ac = 0x10 == (psw & 0x10);
-            println!("psw: {:#b}, cc: {:?}", psw, state.cc);
-            pause();
         }
         _ => unimplemented!("unimplemented inx: {:?}", reg),
     };

@@ -8,13 +8,21 @@ pub mod emulator;
 pub mod ops;
 
 pub fn main() {
-    emulator::diag()
+    emulator::run()
 }
+
 #[cfg(test)]
 mod tests {
+    use emulator;
     use std::char;
     use std::fs;
     use std::path::Path;
+
+    #[test]
+    fn test_diag() {
+        assert_eq!(emulator::diag(), Err("exit".to_string()))
+    }
+
     #[test]
     fn format_opcodes() {
         let buf = fs::read(Path::new("opcodes.txt")).unwrap();

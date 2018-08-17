@@ -6,7 +6,7 @@ use self::state::*;
 mod emulate;
 pub mod instructions;
 
-pub fn diag() {
+pub fn diag() -> Result<(), String> {
     let mut buf = read_rom("roms/cpudiag.bin").unwrap();
     let mut memory = vec![0x0; 256];
 
@@ -27,12 +27,8 @@ pub fn diag() {
     state.debug = true;
     loop {
         match emulate::emulate(&mut state) {
-            Ok(()) => (),
-            Err(s) => {
-                println!("{:}", s);
-                use std::process;
-                process::exit(1);
-            }
+            Ok(_) => (),
+            e @ Err(_) => return e,
         }
     }
 }
