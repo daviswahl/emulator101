@@ -95,10 +95,9 @@ impl CPU {
     }
 
     pub fn read_1(&mut self) -> Result<u8, String> {
-        let pc = self.pc;
-        let result = self.memory.read(pc + 1)?;
-        self.pc += 1;
-        Ok(result)
+        let result = self.read(self.pc);
+        self.advance()?;
+        result
     }
 
     pub fn read(&self, offset: u16) -> Result<u8, String> {

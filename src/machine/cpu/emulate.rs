@@ -27,11 +27,13 @@ where
     let code = state.read(state.pc)?;
     let op = OpCode::from_u8(code).ok_or("unknown op code")?;
 
-    //    state.last_instruction = Some(disassemble(state.memory.clone(), state.pc)?);
-    //
-    //    if let Some(inst) = state.last_instruction {
-    //        println!("{:#X?}, {:?}", state.pc, inst.0);
-    //    }
+    state.last_instruction = Some(disassemble(state.memory.clone(), state.pc)?);
+
+    if let Some(inst) = state.last_instruction {
+        println!("{:#X?}, {:?}", state.pc, inst.0);
+    }
+
+    println!("{:?}", state);
     let result = match op {
         NOP_0 | NOP_1 | NOP_2 | NOP_3 | NOP_4 | NOP_5 | NOP_6 | NOP_7 | NOP_8 | NOP_9 | NOP_10 => {
             state.advance()
@@ -330,16 +332,7 @@ where
     };
 
     state.iters += 1;
-
-    println!("{:?}", state);
-    if state.iters >= 37410 {
-        //        println!(
-        //            "{}",
-        //            disassemble_range(&state.memory, state.pc as usize..(state.pc + 10) as usize)?
-        //        );
-        // pause();
-    }
-    result.map_err(|e| e)
+    result
 }
 
 pub fn pause() {

@@ -604,10 +604,7 @@ pub(crate) fn jmp_if<F: Fn(&CPU) -> bool>(state: &mut CPU, f: F) -> Result<(), S
         if state.debug && l == 0x0 && h == 0x0 {
             Err("exit")?
         }
-
-        let offset = u16::from(h) << 8 | u16::from(l);
-        // println!("jumping to: {:#X}", offset);
-        state.pc = offset;
+        state.pc = u16::from(h) << 8 | u16::from(l);
     } else {
         state.pc += 2;
     }
