@@ -1,4 +1,4 @@
-use emulator::state::State;
+use cpu::state::State;
 use ops::Register;
 use ops::Register::*;
 
@@ -732,12 +732,12 @@ pub(crate) fn rar(state: &mut State) -> Result<(), String> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use emulator::state;
+    use cpu::state;
     #[test]
     fn test_rlc() {
         let mut state = state::new_state(vec![0x0, 0x0]);
         state.a = 0x0F2;
-        rlc(&mut state);
+        rlc(&mut state).unwrap();
         assert_eq!(state.a, 0x0E5);
         assert_eq!(state.cc.cy, true);
     }
@@ -746,7 +746,7 @@ mod test {
     fn test_ral() {
         let mut state = state::new_state(vec![0x0, 0x0]);
         state.a = 0x0B5;
-        ral(&mut state);
+        ral(&mut state).unwrap();
         assert_eq!(state.a, 0x06a);
         assert_eq!(state.cc.cy, true);
     }

@@ -1,6 +1,6 @@
-use disassembler::disassemble;
-use emulator::instructions;
-use emulator::state::State;
+use cpu::disassembler::disassemble;
+use cpu::instructions;
+use cpu::state::State;
 use num::FromPrimitive;
 
 macro_rules! simple {

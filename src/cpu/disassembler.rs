@@ -424,11 +424,6 @@ mod tests {
         assert_eq!(read_rom("roms/invaders.rom").unwrap().pop().unwrap(), 0x00);
     }
 
-    #[test]
-    fn test_disassemble() {
-        let buf = read_invaders();
-        let mut r = reader(buf);
-    }
 
     #[test]
     fn test_diag() {

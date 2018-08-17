@@ -1,4 +1,5 @@
-use disassembler::*;
+pub mod disassembler;
+use self::disassembler::*;
 use ops::*;
 
 mod emulate;
@@ -54,8 +55,8 @@ pub type MMap = HashMap<u16, Instruction>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use emulator::emulate::*;
-    use emulator::state::*;
+    use cpu::emulate::*;
+    use cpu::state::*;
 
     fn run_pretty(state: &mut State) -> () {
         match emulate(state, |_| Ok(())) {
@@ -185,5 +186,10 @@ mod tests {
         test_add_register(Register::E, OpCode::ADD_E);
         test_add_register(Register::H, OpCode::ADD_H);
         test_add_register(Register::L, OpCode::ADD_L);
+    }
+
+    #[test]
+    fn test_diag() {
+        assert_eq!(diag(), Err("exit".to_string()))
     }
 }
