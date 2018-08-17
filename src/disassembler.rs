@@ -2,16 +2,20 @@ use ops::*;
 
 use num::FromPrimitive;
 use std::fs;
-use std::iter::Enumerate;
 use std::path::Path;
 
+use std::ops::Index;
+use std::ops::Range;
+
 pub fn read_rom(p: &'static str) -> Result<Vec<u8>, &'static str> {
-    fs::read(Path::new(p)).map_err(|_| "failed to read file")
+    let mut v = fs::read(Path::new(p)).map_err(|_| "failed to read file")?;
+    v.extend(vec![0x0; 8192]);
+    Ok(v)
 }
 
-pub struct OpReader<I> {
-    iter: I,
-    pc: i32,
+pub struct OpReader {
+    buf: Vec<u8>,
+    pc: usize,
 }
 
 macro_rules! read_1 {
@@ -23,38 +27,66 @@ macro_rules! read_1 {
     };
 }
 macro_rules! read_2 {
-    ($inst:path, $iter:ident) => {
-        Ok(($inst($iter.next().unwrap()), 1))
+    ($inst:path, $iter:ident, $pos:ident) => {
+        Ok(($inst(*$iter.index($pos + 1)), 1))
     };
-    ($inst:path, $iter:ident,$reg:expr) => {
-        Ok(($inst($reg, $iter.next().unwrap()), 2))
+    ($inst:path, $iter:ident, $pos:ident, $reg:expr) => {
+        Ok(($inst($reg, *$iter.index($pos + 1)), 2))
     };
 
-    ($inst:path, $iter:ident,$reg:expr, $reg2:expr) => {
-        Ok(($inst($reg, $reg2, $iter.next().unwrap()), 2))
+    ($inst:path, $iter:ident,$pos:ident, $reg:expr, $reg2:expr) => {
+        Ok(($inst($reg, $reg2, *$iter.index($pos + 1)), 2))
     };
 }
 
 macro_rules! read_3 {
-    ($inst:path, $iter:ident) => {
-        Ok(($inst($iter.next().unwrap(), $iter.next().unwrap()), 2))
+    ($inst:path, $iter:ident, $pos:ident) => {
+        Ok(($inst(*$iter.index($pos + 1), *$iter.index($pos + 2)), 2))
     };
-    ($inst:path, $iter:ident,$reg:expr) => {
-        Ok(($inst($reg, $iter.next().unwrap(), $iter.next().unwrap()), 2))
-    };
-    ($inst:path, $iter:ident,$reg:expr, $reg2:expr) => {
+    ($inst:path, $iter:ident,$pos:ident, $reg:expr) => {
         Ok((
-            $inst($reg, $reg2, $iter.next().unwrap(), $iter.next().unwrap()),
+            $inst($reg, *$iter.index($pos + 1), *$iter.index($pos + 2)),
+            2,
+        ))
+    };
+    ($inst:path, $iter:ident,$pos:ident, $reg:expr, $reg2:expr) => {
+        Ok((
+            $inst($reg, $reg2, *$iter.index($pos + 1), *$iter.index($pos + 2)),
             2,
         ))
     };
 }
 
-fn read_code<I>(code: OpCode, iter: &mut I) -> Result<(Instruction, i32), String>
-where
-    I: Iterator<Item = u8>,
-{
+impl OpReader {
+    fn read_all(&mut self) -> Vec<(usize, Instruction)> {
+        let mut buf = vec![];
+        loop {
+            let pos = self.pc;
+            self.pc += 1;
+            if self.buf.len() > pos {
+                if let Ok((ins, size)) = disassemble(&self.buf, pos) {
+                    self.pc += size as usize;
+                    buf.push((pos, ins));
+                }
+            } else {
+                break;
+            }
+        }
+        buf
+    }
+}
+
+pub fn disassemble_range(buf: &Vec<u8>, r: Range<usize>) -> Result<String, String> {
+    let mut s = String::new();
+    for i in r {
+        s.push_str(format!("{:?}\n", disassemble(buf, i)?.0).as_ref());
+    }
+    Ok(s)
+}
+
+pub fn disassemble(buf: &Vec<u8>, pos: usize) -> Result<(Instruction, usize), String> {
     use ops::Register::*;
+    let code = OpCode::from_u8(*buf.index(pos)).ok_or("out of range")?;
     match code {
         OpCode::NOP_0
         | OpCode::NOP_1
@@ -81,18 +113,18 @@ where
         OpCode::RET => read_1!(Instruction::RET),
 
         // LXI
-        OpCode::LXI_B_D => read_3!(Instruction::LXI, iter, B, D),
-        OpCode::LXI_D_D => read_3!(Instruction::LXI, iter, D, D),
-        OpCode::LXI_H_D => read_3!(Instruction::LXI, iter, H, D),
-        OpCode::LXI_SP_D => read_3!(Instruction::LXI, iter, SP, D),
+        OpCode::LXI_B => read_3!(Instruction::LXI, buf, pos, B, D),
+        OpCode::LXI_D => read_3!(Instruction::LXI, buf, pos, D, D),
+        OpCode::LXI_H => read_3!(Instruction::LXI, buf, pos, H, D),
+        OpCode::LXI_SP => read_3!(Instruction::LXI, buf, pos, SP, D),
 
-        OpCode::JNC => read_3!(Instruction::JNC, iter),
+        OpCode::JNC => read_3!(Instruction::JNC, buf, pos),
 
-        OpCode::JMP => read_3!(Instruction::JMP, iter),
+        OpCode::JMP => read_3!(Instruction::JMP, buf, pos),
 
-        OpCode::STAX_B => read_3!(Instruction::STAX, iter, B),
-        OpCode::STAX_D => read_3!(Instruction::STAX, iter, D),
-        OpCode::STA => read_3!(Instruction::STA, iter),
+        OpCode::STAX_B => read_3!(Instruction::STAX, buf, pos, B),
+        OpCode::STAX_D => read_3!(Instruction::STAX, buf, pos, D),
+        OpCode::STA => read_3!(Instruction::STA, buf, pos),
 
         OpCode::PUSH_PSW => read_1!(Instruction::PUSH(PSW)),
         OpCode::PUSH_B => read_1!(Instruction::PUSH(B)),
@@ -100,18 +132,18 @@ where
         OpCode::PUSH_H => read_1!(Instruction::PUSH(H)),
 
         // LDAX
-        OpCode::LDAX_B => read_1!(Instruction::PUSH(B)),
-        OpCode::LDAX_D => read_1!(Instruction::PUSH(B)),
+        OpCode::LDAX_B => read_1!(Instruction::LDAX(B)),
+        OpCode::LDAX_D => read_1!(Instruction::LDAX(D)),
 
         // Mvi
-        OpCode::MVI_A_D => read_2!(Instruction::MVI, iter, A, D),
-        OpCode::MVI_B_D => read_2!(Instruction::MVI, iter, B, D),
-        OpCode::MVI_C_D => read_2!(Instruction::MVI, iter, C, D),
-        OpCode::MVI_D_D => read_2!(Instruction::MVI, iter, D, D),
-        OpCode::MVI_E_D => read_2!(Instruction::MVI, iter, E, D),
-        OpCode::MVI_H_D => read_2!(Instruction::MVI, iter, H, D),
-        OpCode::MVI_L_D => read_2!(Instruction::MVI, iter, L, D),
-        OpCode::MVI_M_D => read_2!(Instruction::MVI, iter, M, D),
+        OpCode::MVI_A => read_2!(Instruction::MVI, buf, pos, A, D),
+        OpCode::MVI_B => read_2!(Instruction::MVI, buf, pos, B, D),
+        OpCode::MVI_C => read_2!(Instruction::MVI, buf, pos, C, D),
+        OpCode::MVI_D => read_2!(Instruction::MVI, buf, pos, D, D),
+        OpCode::MVI_E => read_2!(Instruction::MVI, buf, pos, E, D),
+        OpCode::MVI_H => read_2!(Instruction::MVI, buf, pos, H, D),
+        OpCode::MVI_L => read_2!(Instruction::MVI, buf, pos, L, D),
+        OpCode::MVI_M => read_2!(Instruction::MVI, buf, pos, M, D),
 
         // DCR
         OpCode::DCR_A => read_1!(Instruction::DCR(A)),
@@ -135,19 +167,24 @@ where
 
         OpCode::RRC => read_1!(Instruction::RRC),
         OpCode::RC => read_1!(Instruction::RC),
-        OpCode::SUI => read_2!(Instruction::SUI, iter),
+        OpCode::SUI => read_2!(Instruction::SUI, buf, pos),
+        OpCode::ACI => read_2!(Instruction::ACI, buf, pos),
 
         OpCode::XTHL => read_1!(Instruction::XTHL),
         OpCode::PCHL => read_1!(Instruction::PCHL),
 
-        OpCode::CALL => read_3!(Instruction::CALL, iter),
-        OpCode::IN => read_2!(Instruction::IN, iter),
-        OpCode::ORI => read_2!(Instruction::ORI, iter),
-        OpCode::ADI => read_2!(Instruction::ADI, iter),
+        OpCode::CALL => read_3!(Instruction::CALL, buf, pos),
+        OpCode::CC => read_3!(Instruction::CC, buf, pos),
+        OpCode::CPO => read_3!(Instruction::CPO, buf, pos),
+        OpCode::CP => read_3!(Instruction::CP, buf, pos),
 
-        OpCode::JC => read_3!(Instruction::JC, iter),
-        OpCode::LDA => read_3!(Instruction::LDA, iter),
-        OpCode::JNZ => read_3!(Instruction::JNZ, iter),
+        OpCode::IN => read_2!(Instruction::IN, buf, pos),
+        OpCode::ORI => read_2!(Instruction::ORI, buf, pos),
+        OpCode::ADI => read_2!(Instruction::ADI, buf, pos),
+
+        OpCode::JC => read_3!(Instruction::JC, buf, pos),
+        OpCode::LDA => read_3!(Instruction::LDA, buf, pos),
+        OpCode::JNZ => read_3!(Instruction::JNZ, buf, pos),
 
         // CMP
         OpCode::CMP_A => read_1!(Instruction::CMP(A)),
@@ -171,9 +208,9 @@ where
 
         OpCode::DAA => read_1!(Instruction::DAA),
         OpCode::STC => read_1!(Instruction::STC),
-        OpCode::JZ => read_3!(Instruction::JZ, iter),
-        OpCode::CNZ => read_3!(Instruction::CNZ, iter),
-        OpCode::LHLD => read_3!(Instruction::LHLD, iter),
+        OpCode::JZ => read_3!(Instruction::JZ, buf, pos),
+        OpCode::CNZ => read_3!(Instruction::CNZ, buf, pos),
+        OpCode::LHLD => read_3!(Instruction::LHLD, buf, pos),
 
         // XRA
         OpCode::XRA_A => read_1!(Instruction::XRA(A)),
@@ -185,9 +222,9 @@ where
         OpCode::XRA_H => read_1!(Instruction::XRA(H)),
         OpCode::XRA_M => read_1!(Instruction::XRA(M)),
 
-        OpCode::CPI => read_2!(Instruction::CPI, iter),
-        OpCode::CNC => read_3!(Instruction::CNC, iter),
-        OpCode::OUT => read_2!(Instruction::OUT, iter),
+        OpCode::CPI => read_2!(Instruction::CPI, buf, pos),
+        OpCode::CNC => read_3!(Instruction::CNC, buf, pos),
+        OpCode::OUT => read_2!(Instruction::OUT, buf, pos),
 
         OpCode::POP_H => read_1!(Instruction::POP(H)),
         OpCode::POP_B => read_1!(Instruction::POP(B)),
@@ -275,7 +312,7 @@ where
         OpCode::INX_SP => read_1!(Instruction::INX(SP)),
         OpCode::INX_H => read_1!(Instruction::INX(H)),
 
-        OpCode::SHLD => read_3!(Instruction::SHLD, iter),
+        OpCode::SHLD => read_3!(Instruction::SHLD, buf, pos),
 
         // DCX
         OpCode::DCX_B => read_1!(Instruction::DCX(B)),
@@ -292,15 +329,16 @@ where
         OpCode::INR_L => read_1!(Instruction::INR(L)),
         OpCode::INR_M => read_1!(Instruction::INR(M)),
 
-        OpCode::ANI => read_2!(Instruction::ANI, iter),
-        OpCode::JPO => read_3!(Instruction::JPO, iter),
-        OpCode::CM => read_3!(Instruction::CM, iter),
-        OpCode::CPE => read_3!(Instruction::CPE, iter),
+        OpCode::ANI => read_2!(Instruction::ANI, buf, pos),
+        OpCode::JPO => read_3!(Instruction::JPO, buf, pos),
+        OpCode::CM => read_3!(Instruction::CM, buf, pos),
+        OpCode::CPE => read_3!(Instruction::CPE, buf, pos),
 
         OpCode::RLC => read_1!(Instruction::RLC),
         OpCode::CZ => read_1!(Instruction::CZ),
         OpCode::RP => read_1!(Instruction::RP),
         OpCode::RPO => read_1!(Instruction::RPO),
+        OpCode::RPE => read_1!(Instruction::RPE),
 
         OpCode::DAD_B => read_1!(Instruction::DAD(B)),
         OpCode::DAD_D => read_1!(Instruction::DAD(D)),
@@ -357,49 +395,20 @@ where
         OpCode::RAR => read_1!(Instruction::RAR),
         OpCode::RM => read_1!(Instruction::RM),
 
-        OpCode::JM => read_3!(Instruction::JM, iter),
+        OpCode::JM => read_3!(Instruction::JM, buf, pos),
+        OpCode::JPE => read_3!(Instruction::JPE, buf, pos),
+        OpCode::JP => read_3!(Instruction::JP, buf, pos),
 
-        OpCode::SBI => read_2!(Instruction::SBI, iter),
-        OpCode::XRI => read_2!(Instruction::XRI, iter),
+        OpCode::SBI => read_2!(Instruction::SBI, buf, pos),
+        OpCode::XRI => read_2!(Instruction::XRI, buf, pos),
 
+        OpCode::SPHL => read_1!(Instruction::SPHL),
         e => Err(format!("OpCode unimplemented: {:?}", e)),
     }
 }
 
-impl<I> Iterator for OpReader<I>
-where
-    I: Iterator<Item = u8>,
-{
-    type Item = Result<(Instruction, i32), String>;
-    fn next(&mut self) -> Option<Self::Item> {
-        let current_pc = self.pc;
-        self.pc += 1;
-
-        if let Some(b) = self.iter.next() {
-            if let Some(code) = OpCode::from_u8(b) {
-                match read_code(code, &mut self.iter) {
-                    Ok((inst, i)) => {
-                        self.pc += i;
-                        Some(Ok((inst, current_pc)))
-                    }
-                    e @ Err(_) => Some(e),
-                }
-            } else {
-                Some(Err(format!("OpCode unimplemented: {:#X?}", b)))
-            }
-        } else {
-            None
-        }
-    }
-}
-
-impl<I> OpReader<I> where I: Iterator<Item = u8> {}
-
-pub fn reader(buf: Vec<u8>) -> OpReader<impl Iterator<Item = u8>> {
-    OpReader {
-        iter: buf.into_iter(),
-        pc: 0,
-    }
+pub fn reader(buf: Vec<u8>) -> OpReader {
+    OpReader { buf: buf, pc: 0 }
 }
 
 #[cfg(test)]
@@ -419,23 +428,40 @@ mod tests {
     fn test_disassemble() {
         let buf = read_invaders();
         let mut r = reader(buf);
-        assert_eq!(r.next(), Some(Ok((Instruction::NOP, 0))));
-        r.next();
-        r.next();
-        assert_eq!(r.next(), Some(Ok((Instruction::JMP(0xd4, 0x18), 3))));
+    }
+
+    #[test]
+    fn test_diag() {
+        let mut buf = read_rom("roms/cpudiag.bin").unwrap();
+        let mut memory = vec![0x0; 256];
+
+        memory[0] = 0xc3;
+        memory[1] = 0;
+        memory[2] = 0x01;
+        memory.append(&mut buf);
+
+        let mut r = reader(memory);
+
+        let p = Path::new("disassemble_diag.txt");
+
+        let result = r
+            .read_all()
+            .into_iter()
+            .map(|(pos, ins)| format!("{:#X?} {:?}\n", pos, ins));
+        fs::write(p, result.collect::<String>());
     }
 
     #[test]
     fn test_disassemble_all() {
         let buf = read_invaders();
-        let r = reader(buf);
+        let mut r = reader(buf);
 
         let p = Path::new("disassemble.txt");
 
-        let result = r.map(|inst| match inst {
-            Ok((inst, pc)) => format!("{:#X?} {:?}\n", pc, inst),
-            Err(e) => unimplemented!()
-        });
+        let result = r
+            .read_all()
+            .into_iter()
+            .map(|(pos, ins)| format!("{:#X?} {:?}\n", pos, ins));
         fs::write(p, result.collect::<String>());
     }
 }

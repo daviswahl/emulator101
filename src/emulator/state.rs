@@ -1,5 +1,6 @@
+use ops::Instruction;
 use ops::Register;
-use std::ops::Index;
+
 pub(crate) struct State {
     pub a: u8,
     pub b: u8,
@@ -13,6 +14,38 @@ pub(crate) struct State {
     pub cc: ConditionCodes,
     pub memory: Vec<u8>,
     pub int_enable: u8,
+    pub iters: u64,
+    pub last_instruction: Option<(Instruction, usize)>,
+    pub break_on: Option<usize>,
+    pub debug: bool,
+}
+
+use std::fmt;
+impl fmt::Debug for State {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        let li = self
+            .last_instruction
+            .as_ref()
+            .map(|(ins, pos)| format!("last\t{:#X?} {:?}", pos, ins));
+        write!(
+            f,
+            "
+        a: {:X?}\tbc: {:X?}{:X?}\tdc: {:X?}{:X?}\thl: {:X?}{:X?}\tpc {:X?}\tsp: {:X?}\titers: {}
+        {:?}
+        ",
+            self.a,
+            self.b,
+            self.c,
+            self.d,
+            self.e,
+            self.h,
+            self.l,
+            self.pc,
+            self.sp,
+            self.iters,
+            self.cc,
+        )
+    }
 }
 
 impl State {
@@ -42,29 +75,58 @@ impl State {
         }
     }
 
-    pub fn reset(self) -> State {
-        new_state(self.memory)
-    }
-
     pub fn read_1(&mut self) -> Result<u8, String> {
-        self.pc += 1;
-        if (self.memory.len() >= self.pc as usize) {
-            Ok(*self.memory.index(self.pc as usize))
+        let pc = self.pc as usize;
+        if self.memory.len() >= pc {
+            self.pc += 1;
+            Ok(self.memory[pc])
         } else {
-            Err(format!("Tried to read out of range address: {}", self.pc))
+            Err(format!(
+                "Tried to read out of range address: {:#X?}, len: {:#X?}",
+                self.pc,
+                self.memory.len()
+            ))
         }
     }
 
-    pub fn read_m(&mut self, offset: usize) -> Result<u8, String> {
-        if (self.memory.len() >= offset) {
-            Ok(*self.memory.index(offset))
+    pub fn read(&self, offset: u16) -> Result<u8, String> {
+        let offset = offset as usize;
+        if self.memory.len() > offset {
+            Ok(self.memory[offset])
         } else {
-            Err(format!("Tried to read out of range address: {}", offset))
+            Err(format!(
+                "Tried to read out of range address: {}, len: {}",
+                offset,
+                self.memory.len()
+            ))
+        }
+    }
+
+    pub fn write(&mut self, offset: u16, data: u8) -> Result<(), String> {
+        let offset = offset as usize;
+        if self.memory.len() > offset {
+            self.memory[offset] = data;
+            Ok(())
+        } else {
+            Err(format!(
+                "Tried to set out of range address: {}, len: {}",
+                offset,
+                self.memory.len()
+            ))
+        }
+    }
+
+    pub fn advance(&mut self) -> Result<(), String> {
+        let pc = self.pc as usize;
+        if self.memory.len() > pc + 1 {
+            Ok(self.pc += 1)
+        } else {
+            Err(format!("Cannot advance out of range: {}", self.pc + 1))
         }
     }
 }
 
-pub (crate) fn new_state(memory: Vec<u8>) -> State {
+pub(crate) fn new_state(memory: Vec<u8>) -> State {
     State {
         a: 0x0,
         b: 0x0,
@@ -84,11 +146,15 @@ pub (crate) fn new_state(memory: Vec<u8>) -> State {
         pc: 0x0,
         memory,
         int_enable: 0x0,
+        iters: 0,
+        last_instruction: None,
+        break_on: None,
+        debug: false,
     }
 }
 
-#[derive(Copy, Clone)]
-pub (crate) struct ConditionCodes {
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct ConditionCodes {
     pub z: bool,
     pub s: bool,
     pub p: bool,
@@ -96,35 +162,44 @@ pub (crate) struct ConditionCodes {
     pub ac: bool,
 }
 impl ConditionCodes {
-    pub fn parity(&mut self, v: u16) {
-        if (v & 0xff) as u8 % 2 == 1 {
-            self.p = false;
-        } else {
-            self.p = true;
+    pub fn logic_flags(&mut self, a: u16) {
+        self.cy = false;
+        self.ac = false;
+        self.z = a == 0;
+        self.s = 0x80 == (a & 0x80);
+        self.parity(a, 8);
+    }
+
+    pub fn parity(&mut self, x: u16, size: u16) {
+        let mut p = 0;
+        let mut i = 0;
+        let mut x = x & ((1 << size) - 1);
+        while i < size {
+            if x & 0x1 == 1 {
+                p += 1
+            }
+            x = x >> 1;
+            i += 1;
         }
+        self.p = 0 == p & 0x1
     }
 
     pub fn zero(&mut self, v: u16) {
-        if v & 0xff == 0 {
-            self.z = true;
-        } else {
-            self.z = false;
-        }
+        self.z = v & 0xff == 0;
     }
 
     pub fn sign(&mut self, v: u16) {
-        if v & 0x80 != 0 {
-            self.s = true;
-        } else {
-            self.s = false;
-        }
+        self.s = 0x80 == (v & 0x80)
     }
 
     pub fn carry(&mut self, v: u16) {
-        if v > 0xff {
-            self.cy = true;
-        } else {
-            self.cy = false;
-        }
+        self.cy = v > 0xff
+    }
+
+    pub fn arith_flags(&mut self, v: u16) {
+        self.carry(v);
+        self.sign(v);
+        self.parity(v, 8);
+        self.zero(v)
     }
 }
