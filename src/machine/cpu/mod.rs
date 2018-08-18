@@ -2,7 +2,7 @@ pub mod disassembler;
 
 use machine::cpu::disassembler::*;
 use machine::cpu::ops::*;
-mod ops;
+pub mod ops;
 use machine::memory::Memory;
 
 mod emulate;
@@ -10,7 +10,7 @@ pub mod instructions;
 
 use machine::cpu::ops::Register;
 
-pub(crate) struct CPU {
+pub struct CPU {
     pub a: u8,
     pub b: u8,
     pub c: u8,
@@ -29,8 +29,14 @@ pub(crate) struct CPU {
     pub debug: bool,
 }
 
-use machine::cpu::emulate::Interrupt;
 use std::fmt;
+
+#[derive(Debug)]
+pub struct IOHandler<'a> {
+    pub code: OpCode,
+    pub cpu: &'a mut CPU,
+    pub byte: u8,
+}
 
 impl fmt::Debug for CPU {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
@@ -56,12 +62,9 @@ impl fmt::Debug for CPU {
 }
 
 impl CPU {
-    pub fn process(
-        &mut self,
-        interrupt: fn(Interrupt) -> Result<(), String>,
-    ) -> Result<(), String> {
+    pub fn process(&mut self, io: fn(IOHandler) -> Result<(), String>) -> Result<(), String> {
         loop {
-            match emulate::emulate(self, interrupt) {
+            match emulate::emulate(self, io) {
                 Ok(()) => (),
                 e @ Err(_) => return e,
             }
@@ -147,7 +150,7 @@ pub(crate) fn new_state(memory: Memory) -> CPU {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct ConditionCodes {
+pub struct ConditionCodes {
     pub z: bool,
     pub s: bool,
     pub p: bool,
@@ -378,4 +381,19 @@ mod tests {
     fn test_diag() {
         assert_eq!(diag(), Err("exit".to_string()))
     }
+}
+
+pub fn pause() {
+    use std::io;
+    use std::io::Read;
+    use std::io::Write;
+    let mut stdin = io::stdin();
+    let mut stdout = io::stdout();
+
+    // We want the cursor to stay at the end of the line, so we print without a newline and flush manually.
+    writeln!(stdout, "Press any key to continue...").unwrap();
+    stdout.flush().unwrap();
+
+    // Read a single byte and discard
+    let _ = stdin.read(&mut [0u8]).unwrap();
 }

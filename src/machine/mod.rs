@@ -1,31 +1,59 @@
 mod cpu;
 mod memory;
 
+use machine::cpu::IOHandler;
+pub use machine::cpu::CPU;
 use machine::memory::Memory;
 use std::cell::RefCell;
 use std::fs;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::rc::Rc;
 
-pub struct Machine {
-    cpu: cpu::CPU,
-    memory: memory::Memory,
+pub trait CPUInterface {
+    fn handle_in(cpu: &mut CPU, data: u8) -> Result<(), String>;
+    fn handle_out(cpu: &mut CPU, data: u8) -> Result<(), String>;
+    fn apply() -> Self
+    where
+        Self: Sized;
 }
 
-impl Machine {
-    pub fn with_rom(path: &'static str) -> Result<Machine, &'static str> {
+pub struct Machine<I> {
+    cpu: cpu::CPU,
+    memory: memory::Memory,
+    _marker: I,
+}
+
+impl<I: IOHandler> Machine<I> {
+    pub fn load(path: &'static str) -> Result<Machine<I>, &'static str> {
         let mut v = fs::read(Path::new(path)).map_err(|_| "failed to read file")?;
         v.extend(vec![0x0; 8192]);
         let memory = Memory::new(v);
         let cpu = cpu::new_state(memory.clone());
 
-        Ok(Machine { memory, cpu })
+        Ok(Machine {
+            memory,
+            cpu,
+            _marker: I::apply(),
+        })
     }
 
     pub fn run(&mut self) -> Result<(), String> {
-        self.cpu.process(|interupt| {
-            println!("got interrupt: {:?}", interupt);
-            Ok(())
+        use machine::cpu::ops::OpCode;
+        self.cpu.process(|interrupt| match interrupt {
+            cpu::IOHandler {
+                code: OpCode::IN,
+                cpu,
+                byte,
+            } => I::handle_in(cpu, byte),
+
+            cpu::IOHandler {
+                code: OpCode::OUT,
+                cpu,
+                byte,
+            } => I::handle_out(cpu, byte),
+
+            _ => Ok(()),
         })
     }
 }

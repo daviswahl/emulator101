@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Clone)]
-pub(crate) struct Memory(Rc<RefCell<Vec<u8>>>);
+pub struct Memory(Rc<RefCell<Vec<u8>>>);
 
 impl Memory {
     pub fn new(vec: Vec<u8>) -> Self {

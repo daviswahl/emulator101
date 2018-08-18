@@ -10,17 +10,11 @@ macro_rules! simple {
     }};
 }
 use machine::cpu::ops::OpCode;
-
-#[derive(Debug)]
-pub(crate) struct Interrupt<'a> {
-    code: OpCode,
-    state: &'a mut CPU,
-    d: u8,
-}
+use machine::cpu::IOHandler;
 
 pub(crate) fn emulate<F>(state: &mut CPU, interrupt: F) -> Result<(), String>
 where
-    F: Fn(Interrupt) -> Result<(), String>,
+    F: Fn(IOHandler) -> Result<(), String>,
 {
     use machine::cpu::ops::OpCode::*;
     use machine::cpu::ops::Register::*;
@@ -318,10 +312,10 @@ where
         IN | OUT => {
             state.advance()?;
             let port = state.read_1()?;
-            interrupt(Interrupt {
-                d: port,
+            interrupt(IOHandler {
+                byte: port,
                 code: op,
-                state,
+                cpu: state,
             })
         }
 
@@ -333,19 +327,4 @@ where
 
     state.iters += 1;
     result
-}
-
-pub fn pause() {
-    use std::io;
-    use std::io::Read;
-    use std::io::Write;
-    let mut stdin = io::stdin();
-    let mut stdout = io::stdout();
-
-    // We want the cursor to stay at the end of the line, so we print without a newline and flush manually.
-    writeln!(stdout, "Press any key to continue...").unwrap();
-    stdout.flush().unwrap();
-
-    // Read a single byte and discard
-    let _ = stdin.read(&mut [0u8]).unwrap();
 }
