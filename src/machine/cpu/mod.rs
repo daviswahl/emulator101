@@ -10,6 +10,8 @@ pub mod instructions;
 pub use crate::machine::cpu::emulate::emulate;
 use crate::machine::cpu::ops::Register;
 
+use crate::EmulatorError;
+use crate::EmulatorErrorKind;
 use std::fmt;
 use std::sync::RwLockWriteGuard;
 
@@ -94,31 +96,34 @@ impl<'a> CPUInterface<'a> {
         }
     }
 
-    pub fn read_1(&mut self) -> Result<u8, String> {
+    pub fn read_1(&mut self) -> Result<u8, EmulatorError> {
         let result = self.read(self.cpu.pc);
         self.advance()?;
         result
     }
 
-    pub fn read(&self, offset: u16) -> Result<u8, String> {
+    pub fn read(&self, offset: u16) -> Result<u8, EmulatorError> {
         self.memory.read(offset)
     }
 
-    pub fn write(&mut self, offset: u16, data: u8) -> Result<(), String> {
+    pub fn write(&mut self, offset: u16, data: u8) -> Result<(), EmulatorError> {
         self.memory.write(offset, data)
     }
 
-    pub fn advance(&mut self) -> Result<(), String> {
+    pub fn advance(&mut self) -> Result<(), EmulatorError> {
         let pc = self.cpu.pc;
         if self.memory.len() > pc + 1 {
             self.cpu.pc += 1;
             Ok(())
         } else {
-            Err(format!("Cannot advance out of range: {}", self.cpu.pc + 1))
+            Err(EmulatorErrorKind::CPUError(format!(
+                "Cannot advance out of range: {}",
+                self.cpu.pc + 1
+            )).into())
         }
     }
 
-    pub fn interrupt(&mut self, interrupt_num: u16) -> Result<(), String> {
+    pub fn interrupt(&mut self, interrupt_num: u16) -> Result<(), EmulatorError> {
         self.cpu.int_enable = 0;
         let sp = self.cpu.sp;
         let low = (self.cpu.pc & 0xff) as u8;

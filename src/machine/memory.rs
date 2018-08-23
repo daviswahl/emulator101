@@ -1,4 +1,7 @@
 use crate::machine::display;
+use crate::EmulatorError;
+use crate::EmulatorErrorKind::CPUError;
+
 #[derive(Debug)]
 pub struct Memory(Vec<u8>);
 
@@ -7,17 +10,17 @@ impl Memory {
         Memory(vec)
     }
 
-    pub fn read(&self, offset: u16) -> Result<u8, String> {
+    pub fn read(&self, offset: u16) -> Result<u8, EmulatorError> {
         let offset = offset as usize;
         let mem = &self.0;
         if mem.len() > offset {
             Ok(mem[offset])
         } else {
-            Err(format!(
+            Err(CPUError(format!(
                 "Tried to read out of range address: {}, len: {}",
                 offset,
                 mem.len()
-            ))
+            )).into())
         }
     }
 
@@ -29,7 +32,7 @@ impl Memory {
         self.0.is_empty()
     }
 
-    pub fn vram(&self) -> Result<[u8; display::FB_SIZE], String> {
+    pub fn vram(&self) -> Result<[u8; display::FB_SIZE], EmulatorError> {
         let mut v = [0; display::FB_SIZE];
         if self.0.len() >= 0x4000 {
             v.copy_from_slice(&self.0[0x2400..0x4000]);
@@ -37,18 +40,18 @@ impl Memory {
         Ok(v)
     }
 
-    pub fn write(&mut self, offset: u16, data: u8) -> Result<(), String> {
+    pub fn write(&mut self, offset: u16, data: u8) -> Result<(), EmulatorError> {
         let offset = offset as usize;
         let mem = &mut self.0;
         if mem.len() > offset {
             mem[offset] = data;
             Ok(())
         } else {
-            Err(format!(
+            Err(CPUError(format!(
                 "Tried to set out of range address: {}, len: {}",
                 offset,
                 mem.len()
-            ))
+            )).into())
         }
     }
 }

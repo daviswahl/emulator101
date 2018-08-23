@@ -3,6 +3,7 @@ use crate::machine::memory::Memory;
 use crate::machine::rom::Rom;
 use crate::machine::CPUInterface;
 use crate::machine::MachineInterface;
+use crate::EmulatorError;
 use crossbeam_channel::Sender;
 use std::fs;
 use std::path::Path;
@@ -21,11 +22,11 @@ pub struct DiagInterface {
 }
 
 impl MachineInterface for DiagInterface {
-    fn handle_in(&self, _cpu: &'_ mut CPUInterface<'_>, _port: u8) -> Result<(), String> {
+    fn handle_in(&self, _cpu: &'_ mut CPUInterface<'_>, _port: u8) -> Result<(), EmulatorError> {
         Ok(())
     }
 
-    fn handle_out(&self, _cpu: &'_ mut CPUInterface<'_>, _port: u8) -> Result<(), String> {
+    fn handle_out(&self, _cpu: &'_ mut CPUInterface<'_>, _port: u8) -> Result<(), EmulatorError> {
         Ok(())
     }
 
@@ -33,15 +34,15 @@ impl MachineInterface for DiagInterface {
         &self,
         _now: &'_ Instant,
         _cpu: &'_ mut CPUInterface<'_>,
-    ) -> Result<(), String> {
+    ) -> Result<(), EmulatorError> {
         Ok(())
     }
 
-    fn memory_handle(&self) -> Result<RwLockWriteGuard<'_, Memory>, String> {
-        self.memory.write().map_err(|_| "lock err".to_owned())
+    fn memory_handle(&self) -> Result<RwLockWriteGuard<'_, Memory>, EmulatorError> {
+        Ok(self.memory.write()?)
     }
 
-    fn display_refresh(&self, _buf: [u8; display::FB_SIZE]) -> Result<(), String> {
+    fn display_refresh(&self, _buf: [u8; display::FB_SIZE]) -> Result<(), EmulatorError> {
         Ok(())
     }
     fn apply(memory: Arc<RwLock<Memory>>, sender: Sender<[u8; display::FB_SIZE]>) -> Self

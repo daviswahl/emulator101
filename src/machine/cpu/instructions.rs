@@ -1,8 +1,10 @@
 use crate::machine::cpu::ops::Register;
 use crate::machine::cpu::ops::Register::*;
 use crate::machine::cpu::CPUInterface;
+use crate::EmulatorError;
+use crate::EmulatorErrorKind::CPUError;
 
-type OpResult = Result<u8, String>;
+type OpResult = Result<u8, EmulatorError>;
 
 /// ADD
 pub(crate) fn add(reg: Register, state: &mut CPUInterface) -> OpResult {
@@ -387,7 +389,7 @@ pub(crate) fn stax(reg: Register, state: &mut CPUInterface) -> OpResult {
             let adr = to_adr(state.cpu.b, state.cpu.c);
             state.write(adr, a)?;
         }
-        r => return Err(format!("illegal stax: register {:?}", *r)),
+        r => return Err(CPUError(format!("illegal stax: register {:?}", *r)).into()),
     };
     Ok(7)
 }
@@ -635,7 +637,8 @@ pub(crate) fn jmp_if<F: Fn(&CPUInterface) -> bool>(state: &mut CPUInterface, f: 
         let h = state.read_1()?;
 
         if state.cpu.debug && l == 0x0 && h == 0x0 {
-            Err("exit")?
+            let e: EmulatorError = CPUError("exit".to_owned()).into();
+            Err(e)?
         }
         state.cpu.pc = u16::from(h) << 8 | u16::from(l);
     } else {
@@ -677,7 +680,7 @@ pub(crate) fn call(state: &mut CPUInterface) -> OpResult {
         }
         Ok(17)
     } else if state.cpu.debug && 0 == (u16::from(h) << 8) | u16::from(l) {
-        Err("exit".to_string())
+        Err(CPUError("exit".to_string()).into())
     } else {
         let ret = state.cpu.pc as u16;
         let sp = state.cpu.sp;
@@ -708,19 +711,19 @@ fn split_u16(b: u16) -> (u8, u8) {
     (high as u8, low as u8)
 }
 
-fn read_2_address(state: &mut CPUInterface) -> Result<u16, String> {
+fn read_2_address(state: &mut CPUInterface) -> Result<u16, EmulatorError> {
     let l: u16 = state.read_1()?.into();
     let h: u16 = state.read_1()?.into();
     Ok(h << 8 | l)
 }
 
-fn read_hl(state: &mut CPUInterface) -> Result<u8, String> {
+fn read_hl(state: &mut CPUInterface) -> Result<u8, EmulatorError> {
     let h = state.cpu.h;
     let l = state.cpu.l;
     state.read(to_adr(h, l))
 }
 
-fn write_hl(state: &mut CPUInterface, data: u8) -> Result<(), String> {
+fn write_hl(state: &mut CPUInterface, data: u8) -> Result<(), EmulatorError> {
     let h = state.cpu.h;
     let l = state.cpu.l;
     state.write(to_adr(h, l), data)
@@ -761,37 +764,37 @@ pub(crate) fn rar(state: &mut CPUInterface) -> OpResult {
 }
 #[cfg(test)]
 mod test {
-       use super::*;
-       use crate::machine::cpu::*;
-       use crate::machine::memory::Memory;
+    use super::*;
+    use crate::machine::cpu::*;
+    use crate::machine::memory::Memory;
     use std::sync::RwLock;
 
     #[test]
-       fn test_rlc() {
-           let cpu = RwLock::new(new());
-           let memory = RwLock::new(Memory::new(vec![0x0, 0x0]));
-           let mut interface = CPUInterface {
-               memory: memory.write().unwrap(),
-               cpu: cpu.write().unwrap(),
-           };
-           interface.cpu.a = 0x0F2;
-           rlc(&mut interface).unwrap();
-           assert_eq!(interface.cpu.a, 0x0E5);
-           assert_eq!(interface.cpu.cc.cy, true);
-       }
+    fn test_rlc() {
+        let cpu = RwLock::new(new());
+        let memory = RwLock::new(Memory::new(vec![0x0, 0x0]));
+        let mut interface = CPUInterface {
+            memory: memory.write().unwrap(),
+            cpu: cpu.write().unwrap(),
+        };
+        interface.cpu.a = 0x0F2;
+        rlc(&mut interface).unwrap();
+        assert_eq!(interface.cpu.a, 0x0E5);
+        assert_eq!(interface.cpu.cc.cy, true);
+    }
 
-       #[test]
-       fn test_ral() {
-           let cpu = RwLock::new(new());
-           let memory = RwLock::new(Memory::new(vec![0x0, 0x0]));
-           let mut interface = CPUInterface {
-               memory: memory.write().unwrap(),
-               cpu: cpu.write().unwrap(),
-           };
-           interface.cpu.a = 0x0B5;
-           ral(&mut interface).unwrap();
-           assert_eq!(interface.cpu.a, 0x06a);
-           assert_eq!(interface.cpu.cc.cy, true);
-       }
+    #[test]
+    fn test_ral() {
+        let cpu = RwLock::new(new());
+        let memory = RwLock::new(Memory::new(vec![0x0, 0x0]));
+        let mut interface = CPUInterface {
+            memory: memory.write().unwrap(),
+            cpu: cpu.write().unwrap(),
+        };
+        interface.cpu.a = 0x0B5;
+        ral(&mut interface).unwrap();
+        assert_eq!(interface.cpu.a, 0x06a);
+        assert_eq!(interface.cpu.cc.cy, true);
+    }
 
 }

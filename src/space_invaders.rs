@@ -26,22 +26,21 @@ pub struct SpaceInvadersMachineInterface {
     sender: Sender<[u8; display::FB_SIZE]>,
 }
 
+use failure::ResultExt;
 pub struct SpaceInvaders;
 use crate::machine::rom::Rom;
+use crate::EmulatorError;
 use std::fs;
 use std::path::Path;
 use std::sync;
 
-fn lock_err<T>(_err: sync::PoisonError<T>) -> String {
-    "could not obtain lock".to_string()
-}
 impl MachineInterface for SpaceInvadersMachineInterface {
-    fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), String> {
+    fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), EmulatorError> {
         cpu.cpu.a = match port {
             0 => 1,
             1 => 0,
             3 => {
-                let read = self.state.read().map_err(lock_err)?;
+                let read = self.state.read()?;
                 let v = u16::from(read.shift1) << 8 | u16::from(read.shift0);
 
                 ((v >> 8u8.wrapping_sub(read.shift_offset)) & 0xff) as u8
@@ -52,9 +51,9 @@ impl MachineInterface for SpaceInvadersMachineInterface {
         Ok(())
     }
 
-    fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), String> {
+    fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), EmulatorError> {
         let value = cpu.cpu.a;
-        let mut state = self.state.write().map_err(lock_err)?;
+        let mut state = self.state.write()?;
         match port {
             2 => state.shift_offset = value & 0x7,
             4 => {
@@ -66,28 +65,25 @@ impl MachineInterface for SpaceInvadersMachineInterface {
         Ok(())
     }
 
-    fn handle_interrupt(&self, now: &Instant, cpu: &mut CPUInterface) -> Result<(), String> {
-            if cpu.cpu.int_enable == 1 && self.state.read().map_err(lock_err)?.next_interrupt <= *now {
-                let mut write = self.state.write().map_err(lock_err)?;
-                if write.which_interrupt == 1 {
-                    write.which_interrupt = 2;
-                    cpu.interrupt(1)?;
-                } else {
-                    write.which_interrupt = 1;
-                    cpu.interrupt(2)?;
-                }
-                write.next_interrupt = *now + Duration::from_micros(8000);
+    fn handle_interrupt(&self, now: &Instant, cpu: &mut CPUInterface) -> Result<(), EmulatorError> {
+        if cpu.cpu.int_enable == 1 && self.state.read()?.next_interrupt <= *now {
+            let mut write = self.state.write()?;
+            if write.which_interrupt == 1 {
+                write.which_interrupt = 2;
+                cpu.interrupt(1)?;
+            } else {
+                write.which_interrupt = 1;
+                cpu.interrupt(2)?;
             }
+            write.next_interrupt = *now + Duration::from_micros(8000);
+        }
         Ok(())
     }
-
-    fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, String> {
-        self.memory
-            .write()
-            .map_err(|_| "Failed to obtain memory lock".to_owned())
+    fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, EmulatorError> {
+        Ok(self.memory.write()?)
     }
 
-    fn display_refresh(&self, buf: [u8; display::FB_SIZE]) -> Result<(), String> {
+    fn display_refresh(&self, buf: [u8; display::FB_SIZE]) -> Result<(), EmulatorError> {
         self.sender.send(buf);
         Ok(())
     }

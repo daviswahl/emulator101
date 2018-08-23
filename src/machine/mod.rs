@@ -8,6 +8,7 @@ pub use crate::machine::cpu::CPUInterface;
 pub use crate::machine::cpu::CPU;
 use crate::machine::memory::Memory;
 use crate::machine::rom::Rom;
+use crate::EmulatorError;
 use crossbeam_channel as channel;
 use crossbeam_channel::Sender;
 use std::marker::PhantomData;
@@ -19,12 +20,16 @@ use std::time;
 use std::time::Duration;
 
 pub trait MachineInterface: Clone {
-    fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), String>;
-    fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), String>;
-    fn handle_interrupt(&self, now: &time::Instant, cpu: &mut CPUInterface) -> Result<(), String>;
-    fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, String>;
+    fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), EmulatorError>;
+    fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), EmulatorError>;
+    fn handle_interrupt(
+        &self,
+        now: &time::Instant,
+        cpu: &mut CPUInterface,
+    ) -> Result<(), EmulatorError>;
+    fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, EmulatorError>;
 
-    fn display_refresh(&self, buf: [u8; display::FB_SIZE]) -> Result<(), String>;
+    fn display_refresh(&self, buf: [u8; display::FB_SIZE]) -> Result<(), EmulatorError>;
     fn apply(memory: Arc<RwLock<Memory>>, sender: Sender<[u8; display::FB_SIZE]>) -> Self
     where
         Self: Sized;
@@ -53,14 +58,14 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
         })
     }
 
-    pub fn run(&mut self) -> Result<(), String> {
+    pub fn run(&mut self) -> Result<(), EmulatorError> {
         let (tx, rx) = channel::unbounded();
         let memory = self.memory.clone();
         let cpu = self.cpu.clone();
         let interface = I::apply(memory, tx);
         let interface2 = interface.clone();
 
-        let th1: thread::JoinHandle<Result<(), String>> = thread::spawn(move || {
+        let th1: thread::JoinHandle<Result<(), EmulatorError>> = thread::spawn(move || {
             use std::time;
             let start = time::Instant::now();
             let mut last_timer = start;
@@ -71,9 +76,7 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
             while let Some(now) = timer.recv() {
                 let memory = interface.memory_handle()?;
                 let mut cpu_interface = CPUInterface {
-                    cpu: cpu
-                        .write()
-                        .map_err(|_| "could not obtain cpu lock".to_string())?,
+                    cpu: cpu.write()?,
                     memory,
                 };
                 interface.handle_interrupt(&now, &mut cpu_interface)?;
@@ -83,7 +86,10 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
 
                 let mut cycles = 0;
                 while cycles < cycles_behind {
-                    cycles += u128::from(crate::machine::cpu::emulate(&mut cpu_interface, &interface)?);
+                    cycles += u128::from(crate::machine::cpu::emulate(
+                        &mut cpu_interface,
+                        &interface,
+                    )?);
                 }
 
                 if iters % 100 == 0 {
@@ -97,7 +103,7 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
             Ok(())
         });
 
-        let th2 = thread::spawn(move || {
+        let th2: thread::JoinHandle<Result<(), EmulatorError>> = thread::spawn(move || {
             let timer = channel::tick(Duration::from_millis(16));
             while let Some(_) = timer.recv() {
                 interface2.display_refresh(interface2.memory_handle()?.vram()?)?
@@ -105,9 +111,11 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
             Ok(())
         });
 
-        display::run(rx).map_err(|e| format!("{:?}", e))?;
+        display::run(rx)?;
 
-        th1.join().map_err(|err| format!("{:?}", err))??;
-        th2.join().map_err(|err| format!("{:?}", err))?
+        use failure::ResultExt;
+        th1.join();
+        th2.join();
+        Ok(())
     }
 }
