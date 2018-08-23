@@ -1,115 +1,113 @@
 mod cpu;
-mod memory;
+pub mod display;
+pub mod memory;
+pub mod rom;
 
-use machine::cpu::IOHandler;
-pub use machine::cpu::CPU;
-use machine::memory::Memory;
-use std::cell::RefCell;
-use std::fs;
+pub use crate::machine::cpu::pause;
+pub use crate::machine::cpu::CPUInterface;
+pub use crate::machine::cpu::CPU;
+use crate::machine::memory::Memory;
+use crate::machine::rom::Rom;
+use crossbeam_channel as channel;
+use crossbeam_channel::Sender;
 use std::marker::PhantomData;
-use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::RwLock;
+use std::sync::RwLockWriteGuard;
+use std::thread;
+use std::time;
+use std::time::Duration;
 
-pub trait CPUInterface {
-    fn handle_in(cpu: &mut CPU, data: u8) -> Result<(), String>;
-    fn handle_out(cpu: &mut CPU, data: u8) -> Result<(), String>;
-    fn apply() -> Self
+pub trait MachineInterface: Clone {
+    fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), String>;
+    fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), String>;
+    fn handle_interrupt(&self, now: &time::Instant, cpu: &mut CPUInterface) -> Result<(), String>;
+    fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, String>;
+
+    fn display_refresh(&self, buf: [u8; display::FB_SIZE]) -> Result<(), String>;
+    fn apply(memory: Arc<RwLock<Memory>>, sender: Sender<[u8; display::FB_SIZE]>) -> Self
     where
         Self: Sized;
 }
 
 pub struct Machine<I> {
-    cpu: cpu::CPU,
-    memory: memory::Memory,
-    _marker: I,
+    cpu: Arc<RwLock<cpu::CPU>>,
+    memory: Arc<RwLock<memory::Memory>>,
+    interface: PhantomData<*const I>,
 }
 
-impl<I: IOHandler> Machine<I> {
-    pub fn load(path: &'static str) -> Result<Machine<I>, &'static str> {
-        let mut v = fs::read(Path::new(path)).map_err(|_| "failed to read file")?;
+impl<I: MachineInterface + Send + 'static> Machine<I> where {
+    pub fn load<R: Rom<I>>(path: &'static str) -> Result<Machine<I>, &'static str> {
+        let mut v = R::load(path).map_err(|_| "failed to read file")?;
         v.extend(vec![0x0; 8192]);
-        let memory = Memory::new(v);
-        let cpu = cpu::new_state(memory.clone());
+
+        let memory = Arc::new(RwLock::new(Memory::new(v)));
+        let mut cpu = cpu::new();
+        cpu.debug = true;
+        let cpu = Arc::new(RwLock::new(cpu));
 
         Ok(Machine {
             memory,
             cpu,
-            _marker: I::apply(),
+            interface: PhantomData,
         })
     }
 
     pub fn run(&mut self) -> Result<(), String> {
-        use machine::cpu::ops::OpCode;
-        self.cpu.process(|interrupt| match interrupt {
-            cpu::IOHandler {
-                code: OpCode::IN,
-                cpu,
-                byte,
-            } => I::handle_in(cpu, byte),
+        let (tx, rx) = channel::unbounded();
+        let memory = self.memory.clone();
+        let cpu = self.cpu.clone();
+        let interface = I::apply(memory, tx);
+        let interface2 = interface.clone();
 
-            cpu::IOHandler {
-                code: OpCode::OUT,
-                cpu,
-                byte,
-            } => I::handle_out(cpu, byte),
+        let th1: thread::JoinHandle<Result<(), String>> = thread::spawn(move || {
+            use std::time;
+            let start = time::Instant::now();
+            let mut last_timer = start;
 
-            _ => Ok(()),
-        })
-    }
-}
+            let timer = channel::tick(Duration::from_millis(1));
 
-#[cfg(test)]
-mod test {
-    use std::cell::Cell;
-    use std::cell::RefCell;
-    use std::ops::IndexMut;
-    use std::rc::Rc;
+            let mut iters = 0;
+            while let Some(now) = timer.recv() {
+                let memory = interface.memory_handle()?;
+                let mut cpu_interface = CPUInterface {
+                    cpu: cpu
+                        .write()
+                        .map_err(|_| "could not obtain cpu lock".to_string())?,
+                    memory,
+                };
+                interface.handle_interrupt(&now, &mut cpu_interface)?;
 
-    #[derive(Clone)]
-    struct Memory(Rc<RefCell<Vec<u8>>>);
-    impl Memory {
-        fn write(&self, offset: u16, data: u8) -> Result<(), String> {
-            self.0.borrow_mut()[offset as usize] = data;
+                let since_last = now - last_timer;
+                let cycles_behind = 2 * since_last.as_micros();
+
+                let mut cycles = 0;
+                while cycles < cycles_behind {
+                    cycles += u128::from(crate::machine::cpu::emulate(&mut cpu_interface, &interface)?);
+                }
+
+                if iters % 100 == 0 {
+                    let mhz = cpu_interface.cpu.cycles as f64 / start.elapsed().as_micros() as f64;
+                    println!("mhz: {}", mhz);
+                }
+
+                last_timer = now;
+                iters += 1;
+            }
             Ok(())
-        }
+        });
 
-        fn read(&self) -> u8 {
-            self.0.borrow()[0]
-        }
+        let th2 = thread::spawn(move || {
+            let timer = channel::tick(Duration::from_millis(16));
+            while let Some(_) = timer.recv() {
+                interface2.display_refresh(interface2.memory_handle()?.vram()?)?
+            }
+            Ok(())
+        });
+
+        display::run(rx).map_err(|e| format!("{:?}", e))?;
+
+        th1.join().map_err(|err| format!("{:?}", err))??;
+        th2.join().map_err(|err| format!("{:?}", err))?
     }
-
-    struct CPU(Memory);
-
-    impl CPU {
-        fn run(&mut self) {
-            self.0.write(0x0, 0x1);
-        }
-    }
-    struct Machine {
-        cpu: CPU,
-        memory: Memory,
-    }
-
-    impl Machine {
-        fn run(&mut self) {
-            self.cpu.run()
-        }
-
-        fn read(&self) -> u8 {
-            self.memory.read()
-        }
-    }
-
-    #[test]
-    fn test() {
-        let memory = Memory(Rc::new(RefCell::new(vec![0x0])));
-        let mut machine = Machine {
-            cpu: CPU(memory.clone()),
-            memory: memory,
-        };
-
-        machine.run();
-        assert_eq!(machine.read(), 0x1)
-    }
-
 }

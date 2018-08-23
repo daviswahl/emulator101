@@ -1,17 +1,15 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
-#[derive(Clone)]
-pub struct Memory(Rc<RefCell<Vec<u8>>>);
+use crate::machine::display;
+#[derive(Debug)]
+pub struct Memory(Vec<u8>);
 
 impl Memory {
     pub fn new(vec: Vec<u8>) -> Self {
-        Memory(Rc::new(RefCell::new(vec)))
+        Memory(vec)
     }
 
     pub fn read(&self, offset: u16) -> Result<u8, String> {
         let offset = offset as usize;
-        let mem = self.0.borrow();
+        let mem = &self.0;
         if mem.len() > offset {
             Ok(mem[offset])
         } else {
@@ -24,12 +22,24 @@ impl Memory {
     }
 
     pub fn len(&self) -> u16 {
-        self.0.borrow().len() as u16
+        self.0.len() as u16
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn vram(&self) -> Result<[u8; display::FB_SIZE], String> {
+        let mut v = [0; display::FB_SIZE];
+        if self.0.len() >= 0x4000 {
+            v.copy_from_slice(&self.0[0x2400..0x4000]);
+        }
+        Ok(v)
     }
 
     pub fn write(&mut self, offset: u16, data: u8) -> Result<(), String> {
         let offset = offset as usize;
-        let mut mem = self.0.borrow_mut();
+        let mem = &mut self.0;
         if mem.len() > offset {
             mem[offset] = data;
             Ok(())

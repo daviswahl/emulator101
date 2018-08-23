@@ -1,330 +1,331 @@
-use machine::cpu::disassembler::disassemble;
-use machine::cpu::instructions;
-use machine::cpu::CPU;
+use crate::machine::cpu::disassembler::disassemble;
+use crate::machine::cpu::instructions;
 use num::FromPrimitive;
 
 macro_rules! simple {
-    ($state:ident, $e:expr) => {{
-        $state.advance()?;
-        Ok($e)
+    ($cpu:ident, $cycles:expr, $e:expr) => {{
+        $cpu.advance()?;
+        $e;
+        Ok($cycles)
     }};
 }
-use machine::cpu::ops::OpCode;
-use machine::cpu::IOHandler;
 
-pub(crate) fn emulate<F>(state: &mut CPU, interrupt: F) -> Result<(), String>
-where
-    F: Fn(IOHandler) -> Result<(), String>,
-{
-    use machine::cpu::ops::OpCode::*;
-    use machine::cpu::ops::Register::*;
-    let code = state.read(state.pc)?;
+use crate::machine::cpu::ops::OpCode;
+use crate::machine::CPUInterface;
+use crate::machine::MachineInterface;
+
+pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Result<u8, String> {
+    use crate::machine::cpu::ops::OpCode::*;
+    use crate::machine::cpu::ops::Register::*;
+    let code = cpu.read(cpu.cpu.pc)?;
     let op = OpCode::from_u8(code).ok_or("unknown op code")?;
 
-    state.last_instruction = Some(disassemble(state.memory.clone(), state.pc)?);
+    let _instruction = disassemble(&cpu.memory, cpu.cpu.pc);
 
-    if let Some(inst) = state.last_instruction {
-        println!("{:#X?}, {:?}", state.pc, inst.0);
-    }
-
-    println!("{:?}", state);
+    //println!("{:?}", instruction);
+    //println!("{:?}", *cpu.cpu);
     let result = match op {
         NOP_0 | NOP_1 | NOP_2 | NOP_3 | NOP_4 | NOP_5 | NOP_6 | NOP_7 | NOP_8 | NOP_9 | NOP_10 => {
-            state.advance()
+            cpu.advance()?;
+            Ok(4)
         }
-        ADD_A => instructions::add(A, state),
-        ADD_B => instructions::add(B, state),
-        ADD_C => instructions::add(C, state),
-        ADD_D => instructions::add(D, state),
-        ADD_E => instructions::add(E, state),
-        ADD_H => instructions::add(H, state),
-        ADD_L => instructions::add(L, state),
-        ADD_M => instructions::add(M, state),
+        ADD_A => instructions::add(A, cpu),
+        ADD_B => instructions::add(B, cpu),
+        ADD_C => instructions::add(C, cpu),
+        ADD_D => instructions::add(D, cpu),
+        ADD_E => instructions::add(E, cpu),
+        ADD_H => instructions::add(H, cpu),
+        ADD_L => instructions::add(L, cpu),
+        ADD_M => instructions::add(M, cpu),
 
-        SUB_A => instructions::sub(A, state),
-        SUB_B => instructions::sub(B, state),
-        SUB_C => instructions::sub(C, state),
-        SUB_D => instructions::sub(D, state),
-        SUB_E => instructions::sub(E, state),
-        SUB_H => instructions::sub(H, state),
-        SUB_L => instructions::sub(L, state),
-        SUB_M => instructions::sub(M, state),
+        SUB_A => instructions::sub(A, cpu),
+        SUB_B => instructions::sub(B, cpu),
+        SUB_C => instructions::sub(C, cpu),
+        SUB_D => instructions::sub(D, cpu),
+        SUB_E => instructions::sub(E, cpu),
+        SUB_H => instructions::sub(H, cpu),
+        SUB_L => instructions::sub(L, cpu),
+        SUB_M => instructions::sub(M, cpu),
 
-        SUI => instructions::sui(state),
-        SBI => instructions::sbi(state),
+        SUI => instructions::sui(cpu),
+        SBI => instructions::sbi(cpu),
 
-        SBB_A => instructions::sbb(A, state),
-        SBB_B => instructions::sbb(B, state),
-        SBB_C => instructions::sbb(C, state),
-        SBB_D => instructions::sbb(D, state),
-        SBB_E => instructions::sbb(E, state),
-        SBB_H => instructions::sbb(H, state),
-        SBB_L => instructions::sbb(L, state),
-        SBB_M => instructions::sbb(M, state),
+        SBB_A => instructions::sbb(A, cpu),
+        SBB_B => instructions::sbb(B, cpu),
+        SBB_C => instructions::sbb(C, cpu),
+        SBB_D => instructions::sbb(D, cpu),
+        SBB_E => instructions::sbb(E, cpu),
+        SBB_H => instructions::sbb(H, cpu),
+        SBB_L => instructions::sbb(L, cpu),
+        SBB_M => instructions::sbb(M, cpu),
 
-        DCX_B => instructions::dcx(B, state),
-        DCX_D => instructions::dcx(D, state),
-        DCX_H => instructions::dcx(H, state),
-        DCX_SP => instructions::dcx(SP, state),
+        DCX_B => instructions::dcx(B, cpu),
+        DCX_D => instructions::dcx(D, cpu),
+        DCX_H => instructions::dcx(H, cpu),
+        DCX_SP => instructions::dcx(SP, cpu),
 
-        DAD_B => instructions::dad(B, state),
-        DAD_D => instructions::dad(D, state),
-        DAD_H => instructions::dad(H, state),
-        DAD_SP => instructions::dad(SP, state),
+        DAD_B => instructions::dad(B, cpu),
+        DAD_D => instructions::dad(D, cpu),
+        DAD_H => instructions::dad(H, cpu),
+        DAD_SP => instructions::dad(SP, cpu),
 
-        ADC_A => instructions::adc(A, state),
-        ADC_B => instructions::adc(B, state),
-        ADC_C => instructions::adc(C, state),
-        ADC_D => instructions::adc(D, state),
-        ADC_E => instructions::adc(E, state),
-        ADC_H => instructions::adc(H, state),
-        ADC_L => instructions::adc(L, state),
-        ADC_M => instructions::adc(M, state),
+        ADC_A => instructions::adc(A, cpu),
+        ADC_B => instructions::adc(B, cpu),
+        ADC_C => instructions::adc(C, cpu),
+        ADC_D => instructions::adc(D, cpu),
+        ADC_E => instructions::adc(E, cpu),
+        ADC_H => instructions::adc(H, cpu),
+        ADC_L => instructions::adc(L, cpu),
+        ADC_M => instructions::adc(M, cpu),
 
-        ADI => instructions::adi(state),
+        ADI => instructions::adi(cpu),
 
-        MVI_A => instructions::mvi(A, state),
-        MVI_B => instructions::mvi(B, state),
-        MVI_C => instructions::mvi(C, state),
-        MVI_D => instructions::mvi(D, state),
-        MVI_E => instructions::mvi(E, state),
-        MVI_H => instructions::mvi(H, state),
-        MVI_L => instructions::mvi(L, state),
-        MVI_M => instructions::mvi(M, state),
+        MVI_A => instructions::mvi(A, cpu),
+        MVI_B => instructions::mvi(B, cpu),
+        MVI_C => instructions::mvi(C, cpu),
+        MVI_D => instructions::mvi(D, cpu),
+        MVI_E => instructions::mvi(E, cpu),
+        MVI_H => instructions::mvi(H, cpu),
+        MVI_L => instructions::mvi(L, cpu),
+        MVI_M => instructions::mvi(M, cpu),
 
-        LXI_SP => instructions::lxi(SP, state),
-        LXI_B => instructions::lxi(B, state),
-        LXI_D => instructions::lxi(D, state),
-        LXI_H => instructions::lxi(H, state),
+        LXI_SP => instructions::lxi(SP, cpu),
+        LXI_B => instructions::lxi(B, cpu),
+        LXI_D => instructions::lxi(D, cpu),
+        LXI_H => instructions::lxi(H, cpu),
 
-        LDAX_B => instructions::ldax(B, state),
-        LDAX_D => instructions::ldax(D, state),
+        LDAX_B => instructions::ldax(B, cpu),
+        LDAX_D => instructions::ldax(D, cpu),
 
         // Mov
-        MOV_A_A => instructions::mov(A, A, state),
-        MOV_A_B => instructions::mov(A, B, state),
-        MOV_A_C => instructions::mov(A, C, state),
-        MOV_A_D => instructions::mov(A, D, state),
-        MOV_A_E => instructions::mov(A, E, state),
-        MOV_A_H => instructions::mov(A, H, state),
-        MOV_A_L => instructions::mov(A, L, state),
-        MOV_A_M => instructions::mov(A, M, state),
+        MOV_A_A => instructions::mov(A, A, cpu),
+        MOV_A_B => instructions::mov(A, B, cpu),
+        MOV_A_C => instructions::mov(A, C, cpu),
+        MOV_A_D => instructions::mov(A, D, cpu),
+        MOV_A_E => instructions::mov(A, E, cpu),
+        MOV_A_H => instructions::mov(A, H, cpu),
+        MOV_A_L => instructions::mov(A, L, cpu),
+        MOV_A_M => instructions::mov(A, M, cpu),
 
-        MOV_B_A => instructions::mov(B, A, state),
-        MOV_B_B => instructions::mov(B, B, state),
-        MOV_B_C => instructions::mov(B, C, state),
-        MOV_B_D => instructions::mov(B, D, state),
-        MOV_B_E => instructions::mov(B, E, state),
-        MOV_B_H => instructions::mov(B, H, state),
-        MOV_B_L => instructions::mov(B, L, state),
-        MOV_B_M => instructions::mov(B, M, state),
+        MOV_B_A => instructions::mov(B, A, cpu),
+        MOV_B_B => instructions::mov(B, B, cpu),
+        MOV_B_C => instructions::mov(B, C, cpu),
+        MOV_B_D => instructions::mov(B, D, cpu),
+        MOV_B_E => instructions::mov(B, E, cpu),
+        MOV_B_H => instructions::mov(B, H, cpu),
+        MOV_B_L => instructions::mov(B, L, cpu),
+        MOV_B_M => instructions::mov(B, M, cpu),
 
-        MOV_C_A => instructions::mov(C, A, state),
-        MOV_C_B => instructions::mov(C, B, state),
-        MOV_C_C => instructions::mov(C, C, state),
-        MOV_C_D => instructions::mov(C, D, state),
-        MOV_C_E => instructions::mov(C, E, state),
-        MOV_C_H => instructions::mov(C, H, state),
-        MOV_C_L => instructions::mov(C, L, state),
-        MOV_C_M => instructions::mov(C, M, state),
+        MOV_C_A => instructions::mov(C, A, cpu),
+        MOV_C_B => instructions::mov(C, B, cpu),
+        MOV_C_C => instructions::mov(C, C, cpu),
+        MOV_C_D => instructions::mov(C, D, cpu),
+        MOV_C_E => instructions::mov(C, E, cpu),
+        MOV_C_H => instructions::mov(C, H, cpu),
+        MOV_C_L => instructions::mov(C, L, cpu),
+        MOV_C_M => instructions::mov(C, M, cpu),
 
-        MOV_D_A => instructions::mov(D, A, state),
-        MOV_D_B => instructions::mov(D, B, state),
-        MOV_D_C => instructions::mov(D, C, state),
-        MOV_D_D => instructions::mov(D, D, state),
-        MOV_D_E => instructions::mov(D, E, state),
-        MOV_D_H => instructions::mov(D, H, state),
-        MOV_D_L => instructions::mov(D, L, state),
-        MOV_D_M => instructions::mov(D, M, state),
+        MOV_D_A => instructions::mov(D, A, cpu),
+        MOV_D_B => instructions::mov(D, B, cpu),
+        MOV_D_C => instructions::mov(D, C, cpu),
+        MOV_D_D => instructions::mov(D, D, cpu),
+        MOV_D_E => instructions::mov(D, E, cpu),
+        MOV_D_H => instructions::mov(D, H, cpu),
+        MOV_D_L => instructions::mov(D, L, cpu),
+        MOV_D_M => instructions::mov(D, M, cpu),
 
-        MOV_E_A => instructions::mov(E, A, state),
-        MOV_E_B => instructions::mov(E, B, state),
-        MOV_E_C => instructions::mov(E, C, state),
-        MOV_E_D => instructions::mov(E, D, state),
-        MOV_E_E => instructions::mov(E, E, state),
-        MOV_E_H => instructions::mov(E, H, state),
-        MOV_E_L => instructions::mov(E, L, state),
-        MOV_E_M => instructions::mov(E, M, state),
+        MOV_E_A => instructions::mov(E, A, cpu),
+        MOV_E_B => instructions::mov(E, B, cpu),
+        MOV_E_C => instructions::mov(E, C, cpu),
+        MOV_E_D => instructions::mov(E, D, cpu),
+        MOV_E_E => instructions::mov(E, E, cpu),
+        MOV_E_H => instructions::mov(E, H, cpu),
+        MOV_E_L => instructions::mov(E, L, cpu),
+        MOV_E_M => instructions::mov(E, M, cpu),
 
-        MOV_H_A => instructions::mov(H, A, state),
-        MOV_H_B => instructions::mov(H, B, state),
-        MOV_H_C => instructions::mov(H, C, state),
-        MOV_H_D => instructions::mov(H, D, state),
-        MOV_H_E => instructions::mov(H, E, state),
-        MOV_H_H => instructions::mov(H, H, state),
-        MOV_H_L => instructions::mov(H, L, state),
-        MOV_H_M => instructions::mov(H, M, state),
+        MOV_H_A => instructions::mov(H, A, cpu),
+        MOV_H_B => instructions::mov(H, B, cpu),
+        MOV_H_C => instructions::mov(H, C, cpu),
+        MOV_H_D => instructions::mov(H, D, cpu),
+        MOV_H_E => instructions::mov(H, E, cpu),
+        MOV_H_H => instructions::mov(H, H, cpu),
+        MOV_H_L => instructions::mov(H, L, cpu),
+        MOV_H_M => instructions::mov(H, M, cpu),
 
-        MOV_L_A => instructions::mov(L, A, state),
-        MOV_L_B => instructions::mov(L, B, state),
-        MOV_L_C => instructions::mov(L, C, state),
-        MOV_L_D => instructions::mov(L, D, state),
-        MOV_L_E => instructions::mov(L, E, state),
-        MOV_L_H => instructions::mov(L, H, state),
-        MOV_L_L => instructions::mov(L, L, state),
-        MOV_L_M => instructions::mov(L, M, state),
+        MOV_L_A => instructions::mov(L, A, cpu),
+        MOV_L_B => instructions::mov(L, B, cpu),
+        MOV_L_C => instructions::mov(L, C, cpu),
+        MOV_L_D => instructions::mov(L, D, cpu),
+        MOV_L_E => instructions::mov(L, E, cpu),
+        MOV_L_H => instructions::mov(L, H, cpu),
+        MOV_L_L => instructions::mov(L, L, cpu),
+        MOV_L_M => instructions::mov(L, M, cpu),
 
-        MOV_M_A => instructions::mov(M, A, state),
-        MOV_M_B => instructions::mov(M, B, state),
-        MOV_M_C => instructions::mov(M, C, state),
-        MOV_M_D => instructions::mov(M, D, state),
-        MOV_M_E => instructions::mov(M, E, state),
-        MOV_M_H => instructions::mov(M, H, state),
-        MOV_M_L => instructions::mov(M, L, state),
+        MOV_M_A => instructions::mov(M, A, cpu),
+        MOV_M_B => instructions::mov(M, B, cpu),
+        MOV_M_C => instructions::mov(M, C, cpu),
+        MOV_M_D => instructions::mov(M, D, cpu),
+        MOV_M_E => instructions::mov(M, E, cpu),
+        MOV_M_H => instructions::mov(M, H, cpu),
+        MOV_M_L => instructions::mov(M, L, cpu),
 
         // ARITH
-        INX_B => instructions::inx(B, state),
-        INX_D => instructions::inx(D, state),
-        INX_SP => instructions::inx(SP, state),
-        INX_H => instructions::inx(H, state),
+        INX_B => instructions::inx(B, cpu),
+        INX_D => instructions::inx(D, cpu),
+        INX_SP => instructions::inx(SP, cpu),
+        INX_H => instructions::inx(H, cpu),
 
-        INR_A => instructions::inr(A, state),
-        INR_B => instructions::inr(B, state),
-        INR_C => instructions::inr(C, state),
-        INR_D => instructions::inr(D, state),
-        INR_E => instructions::inr(E, state),
-        INR_H => instructions::inr(H, state),
-        INR_L => instructions::inr(L, state),
-        INR_M => instructions::inr(M, state),
+        INR_A => instructions::inr(A, cpu),
+        INR_B => instructions::inr(B, cpu),
+        INR_C => instructions::inr(C, cpu),
+        INR_D => instructions::inr(D, cpu),
+        INR_E => instructions::inr(E, cpu),
+        INR_H => instructions::inr(H, cpu),
+        INR_L => instructions::inr(L, cpu),
+        INR_M => instructions::inr(M, cpu),
 
-        DCR_A => instructions::dcr(A, state),
-        DCR_B => instructions::dcr(B, state),
-        DCR_C => instructions::dcr(C, state),
-        DCR_D => instructions::dcr(D, state),
-        DCR_E => instructions::dcr(E, state),
-        DCR_H => instructions::dcr(H, state),
-        DCR_L => instructions::dcr(L, state),
-        DCR_M => instructions::dcr(M, state),
+        DCR_A => instructions::dcr(A, cpu),
+        DCR_B => instructions::dcr(B, cpu),
+        DCR_C => instructions::dcr(C, cpu),
+        DCR_D => instructions::dcr(D, cpu),
+        DCR_E => instructions::dcr(E, cpu),
+        DCR_H => instructions::dcr(H, cpu),
+        DCR_L => instructions::dcr(L, cpu),
+        DCR_M => instructions::dcr(M, cpu),
 
-        ACI => instructions::aci(state),
+        ACI => instructions::aci(cpu),
 
-        ANI => instructions::ani(state),
-
-        // STACK
-        PUSH_B => instructions::push(B, state),
-        PUSH_D => instructions::push(D, state),
-        PUSH_H => instructions::push(H, state),
-        PUSH_PSW => instructions::push(PSW, state),
+        ANI => instructions::ani(cpu),
 
         // STACK
-        POP_B => instructions::pop(B, state),
-        POP_D => instructions::pop(D, state),
-        POP_H => instructions::pop(H, state),
-        POP_PSW => instructions::pop(PSW, state),
+        PUSH_B => instructions::push(B, cpu),
+        PUSH_D => instructions::push(D, cpu),
+        PUSH_H => instructions::push(H, cpu),
+        PUSH_PSW => instructions::push(PSW, cpu),
 
-        STAX_B => instructions::stax(B, state),
-        STAX_D => instructions::stax(D, state),
-        STA => instructions::sta(state),
-        LDA => instructions::lda(state),
+        // STACK
+        POP_B => instructions::pop(B, cpu),
+        POP_D => instructions::pop(D, cpu),
+        POP_H => instructions::pop(H, cpu),
+        POP_PSW => instructions::pop(PSW, cpu),
 
-        LHLD => instructions::lhld(state),
-        SHLD => instructions::shld(state),
-        XCHG => instructions::xchg(state),
-        XTHL => instructions::xthl(state),
+        STAX_B => instructions::stax(B, cpu),
+        STAX_D => instructions::stax(D, cpu),
+        STA => instructions::sta(cpu),
+        LDA => instructions::lda(cpu),
 
-        CMA => simple!(state, state.a = !state.a),
+        LHLD => instructions::lhld(cpu),
+        SHLD => instructions::shld(cpu),
+        XCHG => instructions::xchg(cpu),
+        XTHL => instructions::xthl(cpu),
 
-        CPI => instructions::cpi(state),
-        CMP_A => instructions::cmp(A, state),
-        CMP_B => instructions::cmp(B, state),
-        CMP_C => instructions::cmp(C, state),
-        CMP_D => instructions::cmp(D, state),
-        CMP_E => instructions::cmp(E, state),
-        CMP_L => instructions::cmp(L, state),
-        CMP_H => instructions::cmp(H, state),
-        CMP_M => instructions::cmp(M, state),
+        CMA => simple!(cpu, 4, cpu.cpu.a = !cpu.cpu.a),
+
+        CPI => instructions::cpi(cpu),
+        CMP_A => instructions::cmp(A, cpu),
+        CMP_B => instructions::cmp(B, cpu),
+        CMP_C => instructions::cmp(C, cpu),
+        CMP_D => instructions::cmp(D, cpu),
+        CMP_E => instructions::cmp(E, cpu),
+        CMP_L => instructions::cmp(L, cpu),
+        CMP_H => instructions::cmp(H, cpu),
+        CMP_M => instructions::cmp(M, cpu),
 
         // BRANCH
-        CALL => instructions::call(state),
-        CPO => instructions::call_if(state, |s| !s.cc.p),
-        CNZ => instructions::call_if(state, |s| !s.cc.z),
-        CNC => instructions::call_if(state, |s| !s.cc.cy),
-        CC => instructions::call_if(state, |s| s.cc.cy),
-        CM => instructions::call_if(state, |s| s.cc.s),
-        CPE => instructions::call_if(state, |s| s.cc.p),
-        CP => instructions::call_if(state, |s| !s.cc.s),
-        CZ => instructions::call_if(state, |s| s.cc.z),
+        CALL => instructions::call(cpu),
+        CPO => instructions::call_if(cpu, |s| !s.cpu.cc.p),
+        CNZ => instructions::call_if(cpu, |s| !s.cpu.cc.z),
+        CNC => instructions::call_if(cpu, |s| !s.cpu.cc.cy),
+        CC => instructions::call_if(cpu, |s| s.cpu.cc.cy),
+        CM => instructions::call_if(cpu, |s| s.cpu.cc.s),
+        CPE => instructions::call_if(cpu, |s| s.cpu.cc.p),
+        CP => instructions::call_if(cpu, |s| !s.cpu.cc.s),
+        CZ => instructions::call_if(cpu, |s| s.cpu.cc.z),
 
-        JNZ => instructions::jmp_if(state, |s| !s.cc.z),
-        JNC => instructions::jmp_if(state, |s| !s.cc.cy),
-        JM => instructions::jmp_if(state, |s| s.cc.s),
-        JZ => instructions::jmp_if(state, |s| s.cc.z),
+        JNZ => instructions::jmp_if(cpu, |s| !s.cpu.cc.z),
+        JNC => instructions::jmp_if(cpu, |s| !s.cpu.cc.cy),
+        JM => instructions::jmp_if(cpu, |s| s.cpu.cc.s),
+        JZ => instructions::jmp_if(cpu, |s| s.cpu.cc.z),
 
-        JPE => instructions::jmp_if(state, |s| s.cc.p),
-        JPO => instructions::jmp_if(state, |s| !s.cc.p),
+        JPE => instructions::jmp_if(cpu, |s| s.cpu.cc.p),
+        JPO => instructions::jmp_if(cpu, |s| !s.cpu.cc.p),
 
-        JP => instructions::jmp_if(state, |s| !s.cc.s),
-        JC => instructions::jmp_if(state, |s| s.cc.cy),
-        JMP => instructions::jmp_if(state, |_| true),
+        JP => instructions::jmp_if(cpu, |s| !s.cpu.cc.s),
+        JC => instructions::jmp_if(cpu, |s| s.cpu.cc.cy),
+        JMP => instructions::jmp_if(cpu, |_| true),
 
-        RET => instructions::ret_if(state, |_| true),
-        RZ => instructions::ret_if(state, |s| s.cc.z),
-        RNZ => instructions::ret_if(state, |s| !s.cc.z),
-        RNC => instructions::ret_if(state, |s| !s.cc.cy),
-        RPE => instructions::ret_if(state, |s| s.cc.p),
-        RPO => instructions::ret_if(state, |s| !s.cc.p),
-        RP => instructions::ret_if(state, |s| !s.cc.s),
-        RM => instructions::ret_if(state, |s| s.cc.s),
-        RC => instructions::ret_if(state, |s| s.cc.cy),
-        STC => simple!(state, state.cc.cy = true),
-        CMC => instructions::cmc(state),
+        RET => instructions::ret_if(cpu, |_| true),
+        RZ => instructions::ret_if(cpu, |s| s.cpu.cc.z),
+        RNZ => instructions::ret_if(cpu, |s| !s.cpu.cc.z),
+        RNC => instructions::ret_if(cpu, |s| !s.cpu.cc.cy),
+        RPE => instructions::ret_if(cpu, |s| s.cpu.cc.p),
+        RPO => instructions::ret_if(cpu, |s| !s.cpu.cc.p),
+        RP => instructions::ret_if(cpu, |s| !s.cpu.cc.s),
+        RM => instructions::ret_if(cpu, |s| s.cpu.cc.s),
+        RC => instructions::ret_if(cpu, |s| s.cpu.cc.cy),
+        STC => simple!(cpu, 4, cpu.cpu.cc.cy = true),
+        CMC => instructions::cmc(cpu),
 
         // LOGICAL
-        XRA_A => instructions::log(A, state, |a, b| a ^ b),
-        XRA_B => instructions::log(B, state, |a, b| a ^ b),
-        XRA_C => instructions::log(C, state, |a, b| a ^ b),
-        XRA_D => instructions::log(D, state, |a, b| a ^ b),
-        XRA_E => instructions::log(E, state, |a, b| a ^ b),
-        XRA_H => instructions::log(H, state, |a, b| a ^ b),
-        XRA_L => instructions::log(L, state, |a, b| a ^ b),
-        XRA_M => instructions::log(M, state, |a, b| a ^ b),
+        XRA_A => instructions::log(A, cpu, 4, |a, b| a ^ b),
+        XRA_B => instructions::log(B, cpu, 4, |a, b| a ^ b),
+        XRA_C => instructions::log(C, cpu, 4, |a, b| a ^ b),
+        XRA_D => instructions::log(D, cpu, 4, |a, b| a ^ b),
+        XRA_E => instructions::log(E, cpu, 4, |a, b| a ^ b),
+        XRA_H => instructions::log(H, cpu, 4, |a, b| a ^ b),
+        XRA_L => instructions::log(L, cpu, 4, |a, b| a ^ b),
+        XRA_M => instructions::log(M, cpu, 7, |a, b| a ^ b),
 
-        ANA_A => instructions::log(A, state, |a, b| a & b),
-        ANA_B => instructions::log(B, state, |a, b| a & b),
-        ANA_C => instructions::log(C, state, |a, b| a & b),
-        ANA_D => instructions::log(D, state, |a, b| a & b),
-        ANA_E => instructions::log(E, state, |a, b| a & b),
-        ANA_H => instructions::log(H, state, |a, b| a & b),
-        ANA_L => instructions::log(L, state, |a, b| a & b),
-        ANA_M => instructions::log(M, state, |a, b| a & b),
+        ANA_A => instructions::log(A, cpu, 4, |a, b| a & b),
+        ANA_B => instructions::log(B, cpu, 4, |a, b| a & b),
+        ANA_C => instructions::log(C, cpu, 4, |a, b| a & b),
+        ANA_D => instructions::log(D, cpu, 4, |a, b| a & b),
+        ANA_E => instructions::log(E, cpu, 4, |a, b| a & b),
+        ANA_H => instructions::log(H, cpu, 4, |a, b| a & b),
+        ANA_L => instructions::log(L, cpu, 4, |a, b| a & b),
+        ANA_M => instructions::log(M, cpu, 7, |a, b| a & b),
 
-        ORA_A => instructions::log(A, state, |a, b| a | b),
-        ORA_B => instructions::log(B, state, |a, b| a | b),
-        ORA_C => instructions::log(C, state, |a, b| a | b),
-        ORA_D => instructions::log(D, state, |a, b| a | b),
-        ORA_E => instructions::log(E, state, |a, b| a | b),
-        ORA_H => instructions::log(H, state, |a, b| a | b),
-        ORA_L => instructions::log(L, state, |a, b| a | b),
-        ORA_M => instructions::log(M, state, |a, b| a | b),
+        ORA_A => instructions::log(A, cpu, 4, |a, b| a | b),
+        ORA_B => instructions::log(B, cpu, 4, |a, b| a | b),
+        ORA_C => instructions::log(C, cpu, 4, |a, b| a | b),
+        ORA_D => instructions::log(D, cpu, 4, |a, b| a | b),
+        ORA_E => instructions::log(E, cpu, 4, |a, b| a | b),
+        ORA_H => instructions::log(H, cpu, 4, |a, b| a | b),
+        ORA_L => instructions::log(L, cpu, 4, |a, b| a | b),
+        ORA_M => instructions::log(M, cpu, 7, |a, b| a | b),
 
-        ORI => instructions::logi(state, |a, b| a | b),
-        XRI => instructions::logi(state, |a, b| a ^ b),
+        ORI => instructions::logi(cpu, 7, |a, b| a | b),
+        XRI => instructions::logi(cpu, 7, |a, b| a ^ b),
 
-        RLC => instructions::rlc(state),
-        RAL => instructions::ral(state),
-        RRC => instructions::rrc(state),
+        RLC => instructions::rlc(cpu),
+        RAL => instructions::ral(cpu),
+        RRC => instructions::rrc(cpu),
 
-        RAR => instructions::rar(state),
+        RAR => instructions::rar(cpu),
 
-        SPHL => instructions::sphl(state),
-        PCHL => instructions::pchl(state),
+        SPHL => instructions::sphl(cpu),
+        PCHL => instructions::pchl(cpu),
 
-        IN | OUT => {
-            state.advance()?;
-            let port = state.read_1()?;
-            interrupt(IOHandler {
-                byte: port,
-                code: op,
-                cpu: state,
-            })
+        IN => {
+            cpu.advance()?;
+            let port = cpu.read_1()?;
+            interface.handle_in(cpu, port)?;
+            Ok(10)
+        }
+        OUT => {
+            cpu.advance()?;
+            let port = cpu.read_1()?;
+            interface.handle_out(cpu, port)?;
+            Ok(10)
         }
 
-        EI => simple!(state, state.int_enable = 1),
-        DI => simple!(state, state.int_enable = 0),
+        EI => simple!(cpu, 4, cpu.cpu.int_enable = 1),
+        DI => simple!(cpu, 4, cpu.cpu.int_enable = 0),
 
-        s => Err(format!("unimplemented op {:?}", s)),
-    };
+        s => Err(format!("unimplemented op {:?}, state: {:?}", s, *cpu.cpu)),
+    }?;
 
-    state.iters += 1;
-    result
+    cpu.cpu.iters += 1;
+    cpu.cpu.cycles += u128::from(result);
+    Ok(result)
 }

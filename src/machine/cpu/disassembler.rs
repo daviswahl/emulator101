@@ -1,23 +1,8 @@
-use machine::cpu::ops::*;
+use crate::machine::cpu::ops::*;
 
 use num::FromPrimitive;
-use std::fs;
-use std::path::Path;
 
-use machine::memory::Memory;
-use std::ops::Index;
-use std::ops::Range;
-
-pub fn read_rom(p: &'static str) -> Result<Vec<u8>, &'static str> {
-    let mut v = fs::read(Path::new(p)).map_err(|_| "failed to read file")?;
-    v.extend(vec![0x0; 8192]);
-    Ok(v)
-}
-
-pub struct OpReader {
-    buf: Memory,
-    pc: u16,
-}
+use crate::machine::memory::Memory;
 
 macro_rules! read_1 {
     ($inst:expr) => {
@@ -55,35 +40,8 @@ macro_rules! read_3 {
     };
 }
 
-impl OpReader {
-    fn read_all(&mut self) -> Vec<(u16, Instruction)> {
-        let mut buf = vec![];
-        loop {
-            let pos = self.pc;
-            self.pc += 1;
-            if self.buf.len() > pos {
-                if let Ok((ins, size)) = disassemble(self.buf.clone(), pos) {
-                    self.pc += size;
-                    buf.push((pos, ins));
-                }
-            } else {
-                break;
-            }
-        }
-        buf
-    }
-}
-
-pub(crate) fn disassemble_range(buf: Memory, r: Range<u16>) -> Result<String, String> {
-    let mut s = String::new();
-    for i in r {
-        s.push_str(format!("{:?}\n", disassemble(buf.clone(), i)?.0).as_ref());
-    }
-    Ok(s)
-}
-
-pub(crate) fn disassemble(buf: Memory, pos: u16) -> Result<(Instruction, u16), String> {
-    use machine::cpu::ops::Register::*;
+crate fn disassemble(buf: &Memory, pos: u16) -> Result<(Instruction, u16), String> {
+    use crate::machine::cpu::ops::Register::*;
     let code = OpCode::from_u8(buf.read(pos as u16)?).ok_or("out of range")?;
     match code {
         OpCode::NOP_0
@@ -402,61 +360,5 @@ pub(crate) fn disassemble(buf: Memory, pos: u16) -> Result<(Instruction, u16), S
 
         OpCode::SPHL => read_1!(Instruction::SPHL),
         e => Err(format!("OpCode unimplemented: {:?}", e)),
-    }
-}
-
-pub fn reader(buf: Vec<u8>) -> OpReader {
-    OpReader {
-        buf: Memory::new(buf),
-        pc: 0,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn read_invaders() -> Vec<u8> {
-        read_rom("roms/invaders.rom").unwrap()
-    }
-
-    #[test]
-    fn test_read_rom() {
-        assert_eq!(read_rom("roms/invaders.rom").unwrap().pop().unwrap(), 0x00);
-    }
-
-    #[test]
-    fn test_diag() {
-        let mut buf = read_rom("roms/cpudiag.bin").unwrap();
-        let mut memory = vec![0x0; 256];
-
-        memory[0] = 0xc3;
-        memory[1] = 0;
-        memory[2] = 0x01;
-        memory.append(&mut buf);
-
-        let mut r = reader(memory);
-
-        let p = Path::new("disassemble_diag.txt");
-
-        let result = r
-            .read_all()
-            .into_iter()
-            .map(|(pos, ins)| format!("{:#X?} {:?}\n", pos, ins));
-        fs::write(p, result.collect::<String>()).unwrap();
-    }
-
-    #[test]
-    fn test_disassemble_all() {
-        let buf = read_invaders();
-        let mut r = reader(buf);
-
-        let p = Path::new("roms/disassemble.txt");
-
-        let result = r
-            .read_all()
-            .into_iter()
-            .map(|(pos, ins)| format!("{:#X?} {:?}\n", pos, ins));
-        fs::write(p, result.collect::<String>()).unwrap();
     }
 }
