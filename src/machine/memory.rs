@@ -1,6 +1,6 @@
+use crate::error::EmulatorError;
+use crate::error::EmulatorErrorKind::CPUError;
 use crate::machine::display;
-use crate::EmulatorError;
-use crate::EmulatorErrorKind::CPUError;
 
 #[derive(Debug)]
 pub struct Memory(Vec<u8>);

@@ -1,9 +1,9 @@
+use crate::error::EmulatorError;
 use crate::machine::display;
 use crate::machine::memory::Memory;
 use crate::machine::rom::Rom;
 use crate::machine::CPUInterface;
 use crate::machine::MachineInterface;
-use crate::EmulatorError;
 use crossbeam_channel::Sender;
 use std::fs;
 use std::path::Path;

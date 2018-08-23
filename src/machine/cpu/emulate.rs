@@ -10,11 +10,11 @@ macro_rules! simple {
     }};
 }
 
+use crate::error::EmulatorError;
+use crate::error::EmulatorErrorKind::CPUError;
 use crate::machine::cpu::ops::OpCode;
 use crate::machine::CPUInterface;
 use crate::machine::MachineInterface;
-use crate::EmulatorError;
-use crate::EmulatorErrorKind::CPUError;
 
 pub fn emulate<I: MachineInterface>(
     cpu: &mut CPUInterface,

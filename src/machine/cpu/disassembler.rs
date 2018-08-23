@@ -2,9 +2,9 @@ use crate::machine::cpu::ops::*;
 
 use num::FromPrimitive;
 
+use crate::error::EmulatorErrorKind::CPUError;
+use crate::error::{EmulatorError, EmulatorErrorKind};
 use crate::machine::memory::Memory;
-use crate::EmulatorErrorKind::CPUError;
-use crate::{EmulatorError, EmulatorErrorKind};
 
 macro_rules! read_1 {
     ($inst:expr) => {

@@ -3,12 +3,12 @@ pub mod display;
 pub mod memory;
 pub mod rom;
 
+use crate::error::EmulatorError;
 pub use crate::machine::cpu::pause;
 pub use crate::machine::cpu::CPUInterface;
 pub use crate::machine::cpu::CPU;
 use crate::machine::memory::Memory;
 use crate::machine::rom::Rom;
-use crate::EmulatorError;
 use crossbeam_channel as channel;
 use crossbeam_channel::Sender;
 use std::marker::PhantomData;

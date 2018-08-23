@@ -10,8 +10,8 @@ pub mod instructions;
 pub use crate::machine::cpu::emulate::emulate;
 use crate::machine::cpu::ops::Register;
 
-use crate::EmulatorError;
-use crate::EmulatorErrorKind;
+use crate::error::EmulatorError;
+use crate::error::EmulatorErrorKind;
 use std::fmt;
 use std::sync::RwLockWriteGuard;
 

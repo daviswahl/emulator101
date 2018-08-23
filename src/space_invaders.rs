@@ -28,8 +28,8 @@ pub struct SpaceInvadersMachineInterface {
 
 use failure::ResultExt;
 pub struct SpaceInvaders;
+use crate::error::EmulatorError;
 use crate::machine::rom::Rom;
-use crate::EmulatorError;
 use std::fs;
 use std::path::Path;
 use std::sync;

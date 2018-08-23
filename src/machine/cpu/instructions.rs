@@ -1,8 +1,8 @@
+use crate::error::EmulatorError;
+use crate::error::EmulatorErrorKind::CPUError;
 use crate::machine::cpu::ops::Register;
 use crate::machine::cpu::ops::Register::*;
 use crate::machine::cpu::CPUInterface;
-use crate::EmulatorError;
-use crate::EmulatorErrorKind::CPUError;
 
 type OpResult = Result<u8, EmulatorError>;
 
