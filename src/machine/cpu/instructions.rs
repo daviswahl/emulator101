@@ -43,10 +43,12 @@ pub(crate) fn adc(reg: Register, state: &mut CPUInterface) -> OpResult {
         Register::M => {
             cycles = 7;
             let offset = (u16::from(state.cpu.h) << 8) | u16::from(state.cpu.l);
-            let m: u16 = state.read(offset)?.wrapping_add(carry).into();
-            u16::from(state.cpu.a) + m
+            let m = u16::from(state.read(offset)?).wrapping_add(carry);
+            u16::from(state.cpu.a).wrapping_add(m)
         }
-        r => u16::from(state.cpu.a) + u16::from(state.get_u8(r).wrapping_add(carry)),
+        r => u16::from(state.cpu.a)
+            .wrapping_add(u16::from(state.get_u8(r)))
+            .wrapping_add(carry),
     };
 
     state.cpu.cc.arith_flags(answer);
@@ -237,9 +239,9 @@ pub(crate) fn dcx(reg: Register, state: &mut CPUInterface) -> OpResult {
             state.cpu.sp = state.cpu.sp.wrapping_sub(1);
         }
         H => {
-            state.cpu.l = wrapping(state.cpu.l, |l| l - 1);
+            state.cpu.l = state.cpu.l.wrapping_sub(1);
             if state.cpu.l == 0 {
-                state.cpu.h -= 1;
+                state.cpu.h = state.cpu.h.wrapping_sub(1);
             }
         }
         _ => unimplemented!("unimplemented inx: {:?}", reg),
@@ -683,7 +685,7 @@ pub(crate) fn call(state: &mut CPUInterface) -> OpResult {
     } else if state.cpu.debug && 0 == (u16::from(h) << 8) | u16::from(l) {
         Err(ErrorKind::Exit(0).into())
     } else {
-        let ret = state.cpu.pc as u16;
+        let ret = state.cpu.pc;
         let sp = state.cpu.sp;
         let sp2 = sp.wrapping_sub(2);
 
@@ -697,19 +699,8 @@ pub(crate) fn call(state: &mut CPUInterface) -> OpResult {
     }
 }
 
-fn wrapping<F: Fn(i16) -> i16>(operand: u8, op: F) -> u8 {
-    (op(operand.into()) & 0xff) as u8
-}
-
 fn to_adr(h: u8, l: u8) -> u16 {
     ((u16::from(h)) << 8 | u16::from(l))
-}
-
-fn split_u16(b: u16) -> (u8, u8) {
-    let low = b & 0xff;
-    let high = (b >> 8) & 0xff;
-
-    (high as u8, low as u8)
 }
 
 fn read_2_address(state: &mut CPUInterface) -> Result<u16, Error> {
@@ -733,8 +724,8 @@ fn write_hl(state: &mut CPUInterface, data: u8) -> Result<(), Error> {
 pub(crate) fn rlc(state: &mut CPUInterface) -> OpResult {
     state.advance()?;
     let x = state.cpu.a;
-    state.cpu.a = (x << 1) | (x >> 7);
-    state.cpu.cc.cy = 1 == (x >> 7);
+    state.cpu.a = (x << 1) | ((x & 0x80) >> 7);
+    state.cpu.cc.cy = (0x80 == (x & 0x80));
     Ok(4)
 }
 
@@ -742,8 +733,8 @@ pub(crate) fn ral(state: &mut CPUInterface) -> OpResult {
     state.advance()?;
     let x = state.cpu.a;
     let carry = if state.cpu.cc.cy { 1 } else { 0 };
-    state.cpu.a = (carry << 7) | (x << 1);
-    state.cpu.cc.cy = 1 == (x >> 7);
+    state.cpu.a = carry | (x << 1);
+    state.cpu.cc.cy = (0x80 == (x & 0x80));
     Ok(4)
 }
 

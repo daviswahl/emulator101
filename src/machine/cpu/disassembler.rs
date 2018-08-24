@@ -361,6 +361,7 @@ crate fn disassemble(buf: &Memory, pos: u16) -> Result<(Instruction, u16), Error
         OpCode::XRI => read_2!(Instruction::XRI, buf, pos),
 
         OpCode::SPHL => read_1!(Instruction::SPHL),
+        OpCode::RIM => read_1!(Instruction::RIM),
         e => Err(ErrorKind::UnimplementedInstruction(e).into()),
     }
 }

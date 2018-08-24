@@ -233,6 +233,11 @@ pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Re
         CMP_H => instructions::cmp(H, cpu),
         CMP_M => instructions::cmp(M, cpu),
 
+        RIM => {
+            cpu.advance()?;
+            Ok(4)
+        }
+
         // BRANCH
         CALL => instructions::call(cpu),
         CPO => instructions::call_if(cpu, |s| !s.cpu.cc.p),
