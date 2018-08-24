@@ -1,5 +1,6 @@
 use crate::machine::cpu::disassembler::disassemble;
 use crate::machine::cpu::instructions;
+use crate::machine::cpu::{Error, ErrorKind};
 use num::FromPrimitive;
 
 macro_rules! simple {
@@ -10,22 +11,17 @@ macro_rules! simple {
     }};
 }
 
-use crate::error::EmulatorError;
-use crate::error::EmulatorErrorKind::CPUError;
 use crate::machine::cpu::ops::OpCode;
 use crate::machine::CPUInterface;
 use crate::machine::MachineInterface;
 
-pub fn emulate<I: MachineInterface>(
-    cpu: &mut CPUInterface,
-    interface: &I,
-) -> Result<u8, EmulatorError> {
+pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Result<u8, Error> {
     use crate::machine::cpu::ops::OpCode::*;
     use crate::machine::cpu::ops::Register::*;
     let code = cpu.read(cpu.cpu.pc)?;
     let op = OpCode::from_u8(code).unwrap();
 
-    let _instruction = disassemble(&cpu.memory, cpu.cpu.pc);
+    let _instruction = disassemble(&cpu.memory, cpu.cpu.pc)?;
 
     //println!("{:?}", instruction);
     //println!("{:?}", *cpu.cpu);
@@ -327,7 +323,7 @@ pub fn emulate<I: MachineInterface>(
         EI => simple!(cpu, 4, cpu.cpu.int_enable = 1),
         DI => simple!(cpu, 4, cpu.cpu.int_enable = 0),
 
-        s => Err(CPUError(format!("unimplemented op {:?}, state: {:?}", s, *cpu.cpu)).into()),
+        s => Err(ErrorKind::UnimplementedOp(s))?,
     }?;
 
     cpu.cpu.iters += 1;

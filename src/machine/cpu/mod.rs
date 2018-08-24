@@ -9,12 +9,13 @@ pub mod instructions;
 
 pub use crate::machine::cpu::emulate::emulate;
 use crate::machine::cpu::ops::Register;
+use failure::Backtrace;
+use failure::Context;
 
-use crate::error::EmulatorError;
-use crate::error::EmulatorErrorKind;
 use std::fmt;
 use std::sync::RwLockWriteGuard;
 
+#[derive(Debug)]
 pub struct CPU {
     pub a: u8,
     pub b: u8,
@@ -34,7 +35,7 @@ pub struct CPU {
     pub cycles: u128,
 }
 
-impl fmt::Debug for CPU {
+impl fmt::Display for CPU {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             f,
@@ -63,11 +64,95 @@ pub struct CPUInterface<'a> {
     pub memory: RwLockWriteGuard<'a, Memory>,
 }
 
-impl<'a> fmt::Debug for CPUInterface<'a> {
+impl<'a> fmt::Display for CPUInterface<'a> {
     fn fmt(&self, f: &'_ mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         self.cpu.fmt(f)
     }
 }
+
+#[derive(Debug)]
+pub struct Error {
+    inner: crate::failure::Context<ErrorKind>,
+}
+
+impl Fail for Error {
+    fn cause(&self) -> Option<&Fail> {
+        self.inner.cause()
+    }
+
+    fn backtrace(&self) -> Option<&Backtrace> {
+        self.inner.backtrace()
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&self.inner, f)
+    }
+}
+
+impl From<crate::machine::memory::Error> for Error {
+    fn from(inner: crate::machine::memory::Error) -> Error {
+        Error {
+            inner: Context::new(ErrorKind::MemoryError(inner)),
+        }
+    }
+}
+
+impl From<crate::machine::MachineError> for Error {
+    fn from(inner: crate::machine::MachineError) -> Error {
+        Error {
+            inner: Context::new(ErrorKind::MachineInterfaceError(Box::new(inner))),
+        }
+    }
+}
+
+impl From<ErrorKind> for Error {
+    fn from(kind: ErrorKind) -> Error {
+        Error {
+            inner: Context::new(kind),
+        }
+    }
+}
+
+impl From<Context<ErrorKind>> for Error {
+    fn from(inner: Context<ErrorKind>) -> Error {
+        Error { inner }
+    }
+}
+
+#[derive(Fail, Debug)]
+pub enum ErrorKind {
+    #[fail(display = "Could not obtain CPU Lock")]
+    LockErr,
+
+    #[fail(display = "MemoryError {}", _0)]
+    MemoryError(#[fail(cause)] crate::machine::memory::Error),
+
+    #[fail(display = "MachineInterfaceError {}", _0)]
+    MachineInterfaceError(#[fail(cause)] Box<crate::machine::MachineError>),
+
+    #[fail(display = "Advanced PC Out of Range: {:#X?}, {}", _0, _1)]
+    PCOutOfRange(u16, u16),
+
+    #[fail(display = "Unknown Op: {}", _0)]
+    UnknownOp(u8),
+
+    #[fail(display = "Unimplemented Instruction: {:?}", _0)]
+    UnimplementedInstruction(OpCode),
+
+    #[fail(display = "Unimplemented Op: {:?}", _0)]
+    UnimplementedOp(OpCode),
+
+    #[fail(display = " OpError: {}", _0)]
+    OpError(String),
+
+    #[fail(display = "exit: {}", _0)]
+    Exit(u8),
+}
+
+use crate::failure::ResultExt;
+use failure::Fail;
 
 impl<'a> CPUInterface<'a> {
     pub fn get_u8(&self, r: Register) -> u8 {
@@ -96,34 +181,36 @@ impl<'a> CPUInterface<'a> {
         }
     }
 
-    pub fn read_1(&mut self) -> Result<u8, EmulatorError> {
+    pub fn read_1(&mut self) -> Result<u8, Error> {
         let result = self.read(self.cpu.pc);
         self.advance()?;
         result
     }
 
-    pub fn read(&self, offset: u16) -> Result<u8, EmulatorError> {
-        self.memory.read(offset)
+    pub fn read(&self, offset: u16) -> Result<u8, Error> {
+        Ok(self.memory.read(offset)?.into())
     }
 
-    pub fn write(&mut self, offset: u16, data: u8) -> Result<(), EmulatorError> {
-        self.memory.write(offset, data)
+    pub fn write(&mut self, offset: u16, data: u8) -> Result<(), Error> {
+        Ok(self.memory.write(offset, data)?)
     }
 
-    pub fn advance(&mut self) -> Result<(), EmulatorError> {
+    pub fn advance(&mut self) -> Result<(), Error> {
         let pc = self.cpu.pc;
         if self.memory.len() > pc + 1 {
             self.cpu.pc += 1;
             Ok(())
         } else {
-            Err(EmulatorErrorKind::CPUError(format!(
-                "Cannot advance out of range: {}",
-                self.cpu.pc + 1
-            )).into())
+            //            Err(Error {
+            //                kind: ErrorKind::OutOfRangeAddress((pc + 1) as usize),
+            //                state: *self.cpu,
+            //            })
+
+            Err(ErrorKind::PCOutOfRange(pc + 1, self.memory.len()).into())
         }
     }
 
-    pub fn interrupt(&mut self, interrupt_num: u16) -> Result<(), EmulatorError> {
+    pub fn interrupt(&mut self, interrupt_num: u16) -> Result<(), Error> {
         self.cpu.int_enable = 0;
         let sp = self.cpu.sp;
         let low = (self.cpu.pc & 0xff) as u8;

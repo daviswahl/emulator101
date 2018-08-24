@@ -1,10 +1,9 @@
-use crate::error::EmulatorError;
-use crate::error::EmulatorErrorKind::CPUError;
 use crate::machine::cpu::ops::Register;
 use crate::machine::cpu::ops::Register::*;
 use crate::machine::cpu::CPUInterface;
+use crate::machine::cpu::{Error, ErrorKind};
 
-type OpResult = Result<u8, EmulatorError>;
+type OpResult = Result<u8, Error>;
 
 /// ADD
 pub(crate) fn add(reg: Register, state: &mut CPUInterface) -> OpResult {
@@ -389,7 +388,7 @@ pub(crate) fn stax(reg: Register, state: &mut CPUInterface) -> OpResult {
             let adr = to_adr(state.cpu.b, state.cpu.c);
             state.write(adr, a)?;
         }
-        r => return Err(CPUError(format!("illegal stax: register {:?}", *r)).into()),
+        r => return Err(ErrorKind::OpError(format!("illegal stax: register {:?}", *r)).into()),
     };
     Ok(7)
 }
@@ -637,8 +636,7 @@ pub(crate) fn jmp_if<F: Fn(&CPUInterface) -> bool>(state: &mut CPUInterface, f: 
         let h = state.read_1()?;
 
         if state.cpu.debug && l == 0x0 && h == 0x0 {
-            let e: EmulatorError = CPUError("exit".to_owned()).into();
-            Err(e)?
+            Err(ErrorKind::Exit(0))?
         }
         state.cpu.pc = u16::from(h) << 8 | u16::from(l);
     } else {
@@ -680,7 +678,7 @@ pub(crate) fn call(state: &mut CPUInterface) -> OpResult {
         }
         Ok(17)
     } else if state.cpu.debug && 0 == (u16::from(h) << 8) | u16::from(l) {
-        Err(CPUError("exit".to_string()).into())
+        Err(ErrorKind::Exit(0).into())
     } else {
         let ret = state.cpu.pc as u16;
         let sp = state.cpu.sp;
@@ -711,19 +709,19 @@ fn split_u16(b: u16) -> (u8, u8) {
     (high as u8, low as u8)
 }
 
-fn read_2_address(state: &mut CPUInterface) -> Result<u16, EmulatorError> {
+fn read_2_address(state: &mut CPUInterface) -> Result<u16, Error> {
     let l: u16 = state.read_1()?.into();
     let h: u16 = state.read_1()?.into();
     Ok(h << 8 | l)
 }
 
-fn read_hl(state: &mut CPUInterface) -> Result<u8, EmulatorError> {
+fn read_hl(state: &mut CPUInterface) -> Result<u8, Error> {
     let h = state.cpu.h;
     let l = state.cpu.l;
     state.read(to_adr(h, l))
 }
 
-fn write_hl(state: &mut CPUInterface, data: u8) -> Result<(), EmulatorError> {
+fn write_hl(state: &mut CPUInterface, data: u8) -> Result<(), Error> {
     let h = state.cpu.h;
     let l = state.cpu.l;
     state.write(to_adr(h, l), data)

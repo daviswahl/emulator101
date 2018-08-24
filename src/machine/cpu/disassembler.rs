@@ -2,8 +2,7 @@ use crate::machine::cpu::ops::*;
 
 use num::FromPrimitive;
 
-use crate::error::EmulatorErrorKind::CPUError;
-use crate::error::{EmulatorError, EmulatorErrorKind};
+use crate::machine::cpu::{Error, ErrorKind};
 use crate::machine::memory::Memory;
 
 macro_rules! read_1 {
@@ -42,10 +41,10 @@ macro_rules! read_3 {
     };
 }
 
-crate fn disassemble(buf: &Memory, pos: u16) -> Result<(Instruction, u16), EmulatorError> {
+crate fn disassemble(buf: &Memory, pos: u16) -> Result<(Instruction, u16), Error> {
     use crate::machine::cpu::ops::Register::*;
-    let code = OpCode::from_u8(buf.read(pos as u16)?)
-        .ok_or(EmulatorErrorKind::CPUError("out of range".to_owned()))?;
+    let code = buf.read(pos as u16)?;
+    let code = OpCode::from_u8(code).ok_or(ErrorKind::UnknownOp(code))?;
     match code {
         OpCode::NOP_0
         | OpCode::NOP_1
@@ -362,6 +361,6 @@ crate fn disassemble(buf: &Memory, pos: u16) -> Result<(Instruction, u16), Emula
         OpCode::XRI => read_2!(Instruction::XRI, buf, pos),
 
         OpCode::SPHL => read_1!(Instruction::SPHL),
-        e => Err(CPUError(format!("OpCode unimplemented: {:?}", e)).into()),
+        e => Err(ErrorKind::UnimplementedInstruction(e).into()),
     }
 }

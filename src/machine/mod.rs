@@ -1,4 +1,4 @@
-mod cpu;
+pub mod cpu;
 pub mod display;
 pub mod memory;
 pub mod rom;
@@ -11,7 +11,13 @@ use crate::machine::memory::Memory;
 use crate::machine::rom::Rom;
 use crossbeam_channel as channel;
 use crossbeam_channel::Sender;
+use failure::Fail;
+use std::error;
+use std::error::Error;
+use std::fmt;
+use std::fmt::Display;
 use std::marker::PhantomData;
+use std::sync;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::sync::RwLockWriteGuard;
@@ -19,17 +25,40 @@ use std::thread;
 use std::time;
 use std::time::Duration;
 
+#[derive(Fail, Debug)]
+pub enum MachineError {
+    #[fail(display = "Machine error caused by: {}", _0)]
+    MemoryError(#[fail(cause)] memory::Error),
+    #[fail(display = "Machine error caused by: {}", _0)]
+    CPUError(#[fail(cause)] cpu::Error),
+    #[fail(display = "LockErr")]
+    LockErr,
+}
+
+impl error::Error for Box<MachineError> {}
+
+impl<T> From<sync::PoisonError<T>> for MachineError {
+    fn from(err: sync::PoisonError<T>) -> Self {
+        MachineError::LockErr
+    }
+}
+
+impl From<cpu::Error> for MachineError {
+    fn from(err: cpu::Error) -> Self {
+        MachineError::CPUError(err)
+    }
+}
 pub trait MachineInterface: Clone {
-    fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), EmulatorError>;
-    fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), EmulatorError>;
+    fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), MachineError>;
+    fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), MachineError>;
     fn handle_interrupt(
         &self,
         now: &time::Instant,
         cpu: &mut CPUInterface,
-    ) -> Result<(), EmulatorError>;
-    fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, EmulatorError>;
+    ) -> Result<(), MachineError>;
+    fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, MachineError>;
 
-    fn display_refresh(&self, buf: [u8; display::FB_SIZE]) -> Result<(), EmulatorError>;
+    fn display_refresh(&self, buf: [u8; display::FB_SIZE]);
     fn apply(memory: Arc<RwLock<Memory>>, sender: Sender<[u8; display::FB_SIZE]>) -> Self
     where
         Self: Sized;
@@ -106,7 +135,7 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
         let th2: thread::JoinHandle<Result<(), EmulatorError>> = thread::spawn(move || {
             let timer = channel::tick(Duration::from_millis(16));
             while let Some(_) = timer.recv() {
-                interface2.display_refresh(interface2.memory_handle()?.vram()?)?
+                interface2.display_refresh(interface2.memory_handle()?.vram()?)
             }
             Ok(())
         });

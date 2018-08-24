@@ -29,13 +29,16 @@ pub struct SpaceInvadersMachineInterface {
 use failure::ResultExt;
 pub struct SpaceInvaders;
 use crate::error::EmulatorError;
+use crate::machine::cpu;
+use crate::machine::memory;
 use crate::machine::rom::Rom;
+use crate::machine::MachineError;
 use std::fs;
 use std::path::Path;
 use std::sync;
 
 impl MachineInterface for SpaceInvadersMachineInterface {
-    fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), EmulatorError> {
+    fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), MachineError> {
         cpu.cpu.a = match port {
             0 => 1,
             1 => 0,
@@ -51,7 +54,7 @@ impl MachineInterface for SpaceInvadersMachineInterface {
         Ok(())
     }
 
-    fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), EmulatorError> {
+    fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), MachineError> {
         let value = cpu.cpu.a;
         let mut state = self.state.write()?;
         match port {
@@ -65,7 +68,7 @@ impl MachineInterface for SpaceInvadersMachineInterface {
         Ok(())
     }
 
-    fn handle_interrupt(&self, now: &Instant, cpu: &mut CPUInterface) -> Result<(), EmulatorError> {
+    fn handle_interrupt(&self, now: &Instant, cpu: &mut CPUInterface) -> Result<(), MachineError> {
         if cpu.cpu.int_enable == 1 && self.state.read()?.next_interrupt <= *now {
             let mut write = self.state.write()?;
             if write.which_interrupt == 1 {
@@ -79,13 +82,12 @@ impl MachineInterface for SpaceInvadersMachineInterface {
         }
         Ok(())
     }
-    fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, EmulatorError> {
+    fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, MachineError> {
         Ok(self.memory.write()?)
     }
 
-    fn display_refresh(&self, buf: [u8; display::FB_SIZE]) -> Result<(), EmulatorError> {
-        self.sender.send(buf);
-        Ok(())
+    fn display_refresh(&self, buf: [u8; display::FB_SIZE]) {
+        self.sender.send(buf)
     }
 
     fn apply(memory: Arc<RwLock<Memory>>, sender: Sender<[u8; display::FB_SIZE]>) -> Self {
