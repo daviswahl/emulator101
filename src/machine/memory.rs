@@ -7,6 +7,10 @@ pub struct Memory(Vec<u8>);
 pub enum Error {
     #[fail(display = "Out of range access: {}, len: {}", _0, _1)]
     OutOfRangeAccess(usize, usize),
+
+    #[fail(display = "Tried to write to rom: {}", _0)]
+    WriteToRom(usize),
+
     #[fail(display = "LockError")]
     LockErr,
 }
@@ -47,11 +51,17 @@ impl Memory {
     pub fn write(&mut self, offset: u16, data: u8) -> Result<(), Error> {
         let offset = offset as usize;
         let mem = &mut self.0;
-        if mem.len() > offset {
+
+        // rom should be configured by ROM
+        if offset < 0x2000 {
             mem[offset] = data;
             Ok(())
-        } else {
+        //Err(Error::WriteToRom(offset))
+        } else if offset >= 0x4000 {
             Err(Error::OutOfRangeAccess(offset, mem.len()))
+        } else {
+            mem[offset] = data;
+            Ok(())
         }
     }
 }

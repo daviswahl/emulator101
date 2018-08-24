@@ -118,11 +118,6 @@ impl<'a> CPUInterface<'a> {
             self.cpu.pc += 1;
             Ok(())
         } else {
-            //            Err(Error {
-            //                kind: ErrorKind::OutOfRangeAddress((pc + 1) as usize),
-            //                state: *self.cpu,
-            //            })
-
             Err(ErrorKind::PCOutOfRange(pc + 1, self.memory.len()).into())
         }
     }
@@ -217,6 +212,12 @@ impl ConditionCodes {
         self.sign(v);
         self.parity(v, 8);
         self.zero(v)
+    }
+
+    pub fn flags_zsp(&mut self, v: u8) {
+        self.z = (v == 0);
+        self.s = (0x80 == (v & 0x80));
+        self.parity(v as u16, 8);
     }
 }
 

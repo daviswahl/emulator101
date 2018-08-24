@@ -47,7 +47,7 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
 
         let memory = Arc::new(RwLock::new(Memory::new(buf)));
         let mut cpu = cpu::new();
-        cpu.debug = true;
+        cpu.debug = R::DEBUG;
         let cpu = Arc::new(RwLock::new(cpu));
 
         Ok(Machine {
@@ -63,6 +63,7 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
         let cpu = self.cpu.clone();
         let interface = I::apply(memory, tx);
         let interface2 = interface.clone();
+        let debug = self.cpu.read()?.debug;
 
         let th1: thread::JoinHandle<Result<(), Error>> = thread::spawn(move || {
             let start = time::Instant::now();
@@ -108,7 +109,9 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
             Ok(())
         });
 
-        display::run(rx)?;
+        if !debug {
+            display::run(rx)?;
+        }
 
         th1.join()??;
         th2.join()?

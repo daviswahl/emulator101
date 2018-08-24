@@ -21,10 +21,11 @@ pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Re
     let code = cpu.read(cpu.cpu.pc)?;
     let op = OpCode::from_u8(code).unwrap();
 
-    let _instruction = disassemble(&cpu.memory, cpu.cpu.pc)?;
-
-    //println!("{:?}", instruction);
-    //println!("{:?}", *cpu.cpu);
+    if cpu.cpu.debug {
+        let instruction = disassemble(&cpu.memory, cpu.cpu.pc)?;
+        println!("{:?}", instruction);
+        println!("{:?}", *cpu.cpu);
+    }
     let result = match op {
         NOP_0 | NOP_1 | NOP_2 | NOP_3 | NOP_4 | NOP_5 | NOP_6 | NOP_7 | NOP_8 | NOP_9 | NOP_10 => {
             cpu.advance()?;

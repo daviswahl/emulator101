@@ -28,9 +28,10 @@ pub(crate) fn aci(state: &mut CPUInterface) -> OpResult {
     let db: u16 = state.read_1()?.into();
     let carry = if state.cpu.cc.cy { 1 } else { 0 };
     let a: u16 = state.cpu.a.into();
-    let result = a.wrapping_add(db + carry);
+    let result = a.wrapping_add(db.wrapping_add(carry));
     state.cpu.a = (result & 0xff) as u8;
-    state.cpu.cc.arith_flags(result);
+    state.cpu.cc.flags_zsp((result & 0xff) as u8);
+    state.cpu.cc.cy = (result > 0xff);
     Ok(7)
 }
 
@@ -58,7 +59,8 @@ pub(crate) fn adi(state: &mut CPUInterface) -> OpResult {
     let val = state.read_1()?;
     let answer = (u16::from(state.cpu.a)) + u16::from(val);
 
-    state.cpu.cc.arith_flags(answer);
+    state.cpu.cc.flags_zsp((answer & 0xff) as u8);
+    state.cpu.cc.cy = (answer > 0xff);
     state.cpu.a = (answer & 0xff) as u8;
     Ok(7)
 }
@@ -67,31 +69,30 @@ pub(crate) fn dad(reg: Register, state: &mut CPUInterface) -> OpResult {
     state.advance()?;
     let answer = match reg {
         SP => {
-            let hl = to_adr(state.cpu.h, state.cpu.l);
-            hl.wrapping_add(state.cpu.sp)
+            let hl: u32 = to_adr(state.cpu.h, state.cpu.l).into();
+            hl.wrapping_add(state.cpu.sp.into())
         }
         B => {
-            let bc = to_adr(state.cpu.b, state.cpu.c);
-            let hl = to_adr(state.cpu.h, state.cpu.l);
+            let bc: u32 = to_adr(state.cpu.b, state.cpu.c).into();
+            let hl: u32 = to_adr(state.cpu.h, state.cpu.l).into();
             hl.wrapping_add(bc)
         }
         D => {
-            let bc = to_adr(state.cpu.d, state.cpu.e);
-            let hl = to_adr(state.cpu.h, state.cpu.l);
-            hl.wrapping_add(bc)
+            let de: u32 = to_adr(state.cpu.d, state.cpu.e).into();
+            let hl: u32 = to_adr(state.cpu.h, state.cpu.l).into();
+            hl.wrapping_add(de)
         }
         H => {
-            let hl = to_adr(state.cpu.h, state.cpu.l);
+            let hl: u32 = to_adr(state.cpu.h, state.cpu.l).into();
             hl.wrapping_add(hl)
         }
         s => unimplemented!("unimplemented lxi: {:?}", s),
     };
 
-    state.cpu.cc.carry(answer);
+    state.cpu.cc.cy = (answer & 0xffff0000) != 0;
 
-    let (h, l) = split_u16(answer);
-    state.cpu.h = h;
-    state.cpu.l = l;
+    state.cpu.h = ((answer & 0xff00) >> 8) as u8;
+    state.cpu.l = (answer & 0xff) as u8;
     Ok(10)
 }
 
@@ -192,13 +193,13 @@ pub(crate) fn inx(reg: Register, state: &mut CPUInterface) -> OpResult {
         B => {
             state.cpu.c = state.cpu.c.wrapping_add(1);
             if state.cpu.c == 0 {
-                state.cpu.b += 1;
+                state.cpu.b = state.cpu.b.wrapping_add(1)
             }
         }
         D => {
             state.cpu.e = state.cpu.e.wrapping_add(1);
             if state.cpu.e == 0 {
-                state.cpu.d += 1;
+                state.cpu.d = state.cpu.d.wrapping_add(1);
             }
         }
         SP => {
@@ -207,7 +208,7 @@ pub(crate) fn inx(reg: Register, state: &mut CPUInterface) -> OpResult {
         H => {
             state.cpu.l = state.cpu.l.wrapping_add(1);
             if state.cpu.l == 0 {
-                state.cpu.h += 1;
+                state.cpu.h = state.cpu.h.wrapping_add(1);
             }
         }
         _ => unimplemented!("unimplemented inx: {:?}", reg),
@@ -772,8 +773,8 @@ mod test {
         let cpu = RwLock::new(new());
         let memory = RwLock::new(Memory::new(vec![0x0, 0x0]));
         let mut interface = CPUInterface {
-            memory: memory.write().unwrap(),
-            cpu: cpu.write().unwrap(),
+            memory: &mut *memory.write().unwrap(),
+            cpu: &mut *cpu.write().unwrap(),
         };
         interface.cpu.a = 0x0F2;
         rlc(&mut interface).unwrap();
@@ -786,8 +787,8 @@ mod test {
         let cpu = RwLock::new(new());
         let memory = RwLock::new(Memory::new(vec![0x0, 0x0]));
         let mut interface = CPUInterface {
-            memory: memory.write().unwrap(),
-            cpu: cpu.write().unwrap(),
+            memory: &mut *memory.write().unwrap(),
+            cpu: &mut *cpu.write().unwrap(),
         };
         interface.cpu.a = 0x0B5;
         ral(&mut interface).unwrap();

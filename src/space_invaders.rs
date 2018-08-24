@@ -104,6 +104,8 @@ impl MachineInterface for SpaceInvadersMachineInterface {
     }
 }
 impl Rom<SpaceInvadersMachineInterface> for SpaceInvaders {
+    const DEBUG: bool = false;
+
     fn load<P: AsRef<Path>>(p: P) -> Result<Vec<u8>, String> {
         fs::read(p).map_err(|_| "failed to read space invaders rom".to_owned())
     }
