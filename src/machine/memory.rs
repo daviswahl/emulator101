@@ -1,5 +1,3 @@
-use crate::error::EmulatorError;
-use crate::error::EmulatorErrorKind::CPUError;
 use crate::machine::display;
 
 #[derive(Debug)]

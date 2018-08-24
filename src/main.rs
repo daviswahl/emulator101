@@ -16,16 +16,14 @@ extern crate ggez;
 use std::any::Any;
 
 mod diag;
-mod error;
 mod space_invaders;
 
 use crate::failure::Backtrace;
 use crate::failure::Context;
 use crate::failure::Fail;
-use error::EmulatorError;
 
 pub mod machine;
-pub fn main() -> Result<(), EmulatorError> {
+pub fn main() -> Result<(), machine::Error> {
     machine::Machine::load::<space_invaders::SpaceInvaders>("roms/invaders.rom")
         .expect("couldn't load rom")
         .run()?;

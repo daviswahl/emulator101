@@ -1,7 +1,10 @@
 pub mod cpu;
 pub mod display;
+mod error;
 pub mod memory;
 pub mod rom;
+
+pub use error::Error;
 
 pub use crate::machine::cpu::pause;
 pub use crate::machine::cpu::CPUInterface;
@@ -12,8 +15,6 @@ use crossbeam_channel as channel;
 use crossbeam_channel::Sender;
 use failure::Fail;
 use std::any::Any;
-use std::error;
-use std::error::Error;
 use std::fmt;
 use std::fmt::Display;
 use std::marker::PhantomData;
@@ -25,62 +26,11 @@ use std::thread;
 use std::time;
 use std::time::Duration;
 
-#[derive(Fail, Debug)]
-pub enum MachineError {
-    #[fail(display = "Machine error caused by: {}", _0)]
-    MemoryError(#[fail(cause)] memory::Error),
-    #[fail(display = "Machine error caused by: {}", _0)]
-    CPUError(#[fail(cause)] cpu::Error),
-    #[fail(display = "LockErr")]
-    LockErr,
-    #[fail(display = "{}", _0)]
-    GameError(#[fail(cause)] ggez::GameError),
-
-    #[fail(display = "{}", _0)]
-    ForeignError(String),
-}
-
-impl error::Error for Box<MachineError> {}
-
-impl<T> From<sync::PoisonError<T>> for MachineError {
-    fn from(err: sync::PoisonError<T>) -> Self {
-        MachineError::LockErr
-    }
-}
-
-impl From<cpu::Error> for MachineError {
-    fn from(err: cpu::Error) -> Self {
-        MachineError::CPUError(err)
-    }
-}
-
-impl From<memory::Error> for MachineError {
-    fn from(err: memory::Error) -> Self {
-        MachineError::MemoryError(err)
-    }
-}
-
-impl From<ggez::GameError> for MachineError {
-    fn from(err: ggez::GameError) -> Self {
-        MachineError::GameError(err).into()
-    }
-}
-
-impl From<Box<Any + Send>> for MachineError {
-    fn from(err: Box<Any + Send>) -> Self {
-        MachineError::ForeignError("Foreign error".to_string())
-    }
-}
-
 pub trait MachineInterface: Clone {
-    fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), MachineError>;
-    fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), MachineError>;
-    fn handle_interrupt(
-        &self,
-        now: &time::Instant,
-        cpu: &mut CPUInterface,
-    ) -> Result<(), MachineError>;
-    fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, MachineError>;
+    fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), Error>;
+    fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), Error>;
+    fn handle_interrupt(&self, now: &time::Instant, cpu: &mut CPUInterface) -> Result<(), Error>;
+    fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, Error>;
 
     fn display_refresh(&self, buf: [u8; display::FB_SIZE]);
     fn apply(memory: Arc<RwLock<Memory>>, sender: Sender<[u8; display::FB_SIZE]>) -> Self
@@ -111,14 +61,14 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
         })
     }
 
-    pub fn run(&mut self) -> Result<(), MachineError> {
+    pub fn run(&mut self) -> Result<(), Error> {
         let (tx, rx) = channel::unbounded();
         let memory = self.memory.clone();
         let cpu = self.cpu.clone();
         let interface = I::apply(memory, tx);
         let interface2 = interface.clone();
 
-        let th1: thread::JoinHandle<Result<(), MachineError>> = thread::spawn(move || {
+        let th1: thread::JoinHandle<Result<(), Error>> = thread::spawn(move || {
             use std::time;
             let start = time::Instant::now();
             let mut last_timer = start;
@@ -156,7 +106,7 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
             Ok(())
         });
 
-        let th2: thread::JoinHandle<Result<(), MachineError>> = thread::spawn(move || {
+        let th2: thread::JoinHandle<Result<(), Error>> = thread::spawn(move || {
             let timer = channel::tick(Duration::from_millis(16));
             while let Some(_) = timer.recv() {
                 interface2.display_refresh(interface2.memory_handle()?.vram()?)

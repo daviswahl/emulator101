@@ -1,11 +1,10 @@
-use crate::error::EmulatorError;
 use crate::machine::cpu;
 use crate::machine::display;
 use crate::machine::memory;
 use crate::machine::memory::Memory;
 use crate::machine::rom::Rom;
 use crate::machine::CPUInterface;
-use crate::machine::{MachineError, MachineInterface};
+use crate::machine::{Error, MachineInterface};
 use crossbeam_channel::Sender;
 use std::fs;
 use std::path::Path;
@@ -24,11 +23,11 @@ pub struct DiagInterface {
 }
 
 impl MachineInterface for DiagInterface {
-    fn handle_in(&self, _cpu: &'_ mut CPUInterface<'_>, _port: u8) -> Result<(), MachineError> {
+    fn handle_in(&self, _cpu: &'_ mut CPUInterface<'_>, _port: u8) -> Result<(), Error> {
         Ok(())
     }
 
-    fn handle_out(&self, _cpu: &'_ mut CPUInterface<'_>, _port: u8) -> Result<(), MachineError> {
+    fn handle_out(&self, _cpu: &'_ mut CPUInterface<'_>, _port: u8) -> Result<(), Error> {
         Ok(())
     }
 
@@ -36,14 +35,14 @@ impl MachineInterface for DiagInterface {
         &self,
         _now: &'_ Instant,
         _cpu: &'_ mut CPUInterface<'_>,
-    ) -> Result<(), MachineError> {
+    ) -> Result<(), Error> {
         Ok(())
     }
 
-    fn memory_handle(&self) -> Result<RwLockWriteGuard<'_, Memory>, MachineError> {
+    fn memory_handle(&self) -> Result<RwLockWriteGuard<'_, Memory>, Error> {
         self.memory
             .write()
-            .map_err(|_| MachineError::MemoryError(memory::Error::LockErr))
+            .map_err(|_| Error::MemoryError(memory::Error::LockErr))
     }
 
     fn display_refresh(&self, _buf: [u8; display::FB_SIZE]) {}

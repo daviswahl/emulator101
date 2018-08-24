@@ -28,17 +28,16 @@ pub struct SpaceInvadersMachineInterface {
 
 use failure::ResultExt;
 pub struct SpaceInvaders;
-use crate::error::EmulatorError;
 use crate::machine::cpu;
 use crate::machine::memory;
 use crate::machine::rom::Rom;
-use crate::machine::MachineError;
+use crate::machine::Error;
 use std::fs;
 use std::path::Path;
 use std::sync;
 
 impl MachineInterface for SpaceInvadersMachineInterface {
-    fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), MachineError> {
+    fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), Error> {
         cpu.cpu.a = match port {
             0 => 1,
             1 => 0,
@@ -54,7 +53,7 @@ impl MachineInterface for SpaceInvadersMachineInterface {
         Ok(())
     }
 
-    fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), MachineError> {
+    fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), Error> {
         let value = cpu.cpu.a;
         let mut state = self.state.write()?;
         match port {
@@ -68,7 +67,7 @@ impl MachineInterface for SpaceInvadersMachineInterface {
         Ok(())
     }
 
-    fn handle_interrupt(&self, now: &Instant, cpu: &mut CPUInterface) -> Result<(), MachineError> {
+    fn handle_interrupt(&self, now: &Instant, cpu: &mut CPUInterface) -> Result<(), Error> {
         if cpu.cpu.int_enable == 1 && self.state.read()?.next_interrupt <= *now {
             let mut write = self.state.write()?;
             if write.which_interrupt == 1 {
@@ -82,7 +81,7 @@ impl MachineInterface for SpaceInvadersMachineInterface {
         }
         Ok(())
     }
-    fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, MachineError> {
+    fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, Error> {
         Ok(self.memory.write()?)
     }
 

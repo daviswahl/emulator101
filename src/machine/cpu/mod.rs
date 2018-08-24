@@ -99,8 +99,8 @@ impl From<crate::machine::memory::Error> for Error {
     }
 }
 
-impl From<crate::machine::MachineError> for Error {
-    fn from(inner: crate::machine::MachineError) -> Error {
+impl From<crate::machine::Error> for Error {
+    fn from(inner: crate::machine::Error) -> Error {
         Error {
             inner: Context::new(ErrorKind::MachineInterfaceError(Box::new(inner))),
         }
@@ -130,7 +130,7 @@ pub enum ErrorKind {
     MemoryError(#[fail(cause)] crate::machine::memory::Error),
 
     #[fail(display = "MachineInterfaceError {}", _0)]
-    MachineInterfaceError(#[fail(cause)] Box<crate::machine::MachineError>),
+    MachineInterfaceError(#[fail(cause)] Box<crate::machine::Error>),
 
     #[fail(display = "Advanced PC Out of Range: {:#X?}, {}", _0, _1)]
     PCOutOfRange(u16, u16),
