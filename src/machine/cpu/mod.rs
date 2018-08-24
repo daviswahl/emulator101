@@ -114,7 +114,7 @@ impl<'a> CPUInterface<'a> {
 
     pub fn advance(&mut self) -> Result<(), Error> {
         let pc = self.cpu.pc;
-        if self.memory.len() > pc + 1 {
+        if self.memory.len() >= pc + 1 {
             self.cpu.pc += 1;
             Ok(())
         } else {

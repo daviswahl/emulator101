@@ -104,10 +104,10 @@ pub(crate) fn sub(reg: Register, state: &mut CPUInterface) -> OpResult {
         Register::M => {
             cycles = 7;
             let offset = ((u16::from(state.cpu.h)) << 8) | u16::from(state.cpu.l);
-            let m = i16::from(state.read(offset)?);
-            (i16::from(state.cpu.a) - m) as u16
+            let m = u16::from(state.read(offset)?);
+            (u16::from(state.cpu.a).wrapping_sub(m))
         }
-        r => ((i16::from(state.cpu.a)) - (i16::from(state.get_u8(r)))) as u16,
+        r => u16::from(state.cpu.a).wrapping_sub(u16::from(state.get_u8(r))),
     };
     state.cpu.cc.arith_flags(answer);
     state.cpu.a = (answer & 0xff) as u8;
@@ -129,7 +129,7 @@ pub(crate) fn sbi(state: &mut CPUInterface) -> OpResult {
     let db: u16 = state.read_1()?.into();
     let carry = if state.cpu.cc.cy { 1 } else { 0 };
     let a: u16 = state.cpu.a.into();
-    let result = a.wrapping_sub(db + carry);
+    let result = a.wrapping_sub(db).wrapping_sub(carry);
     state.cpu.a = (result & 0xff) as u8;
     state.cpu.cc.arith_flags(result);
     Ok(7)
@@ -143,10 +143,12 @@ pub(crate) fn sbb(reg: Register, state: &mut CPUInterface) -> OpResult {
         Register::M => {
             cycles = 7;
             let offset = to_adr(state.cpu.h, state.cpu.l);
-            let m: i16 = state.read(offset)?.wrapping_add(carry).into();
-            (i16::from(state.cpu.a) - m) as u16
+            let m: u16 = state.read(offset)?.into();
+            u16::from(state.cpu.a).wrapping_sub(m).wrapping_sub(carry)
         }
-        r => (i16::from(state.cpu.a) - i16::from(state.get_u8(r).wrapping_add(carry))) as u16,
+        r => u16::from(state.cpu.a)
+            .wrapping_sub(u16::from(state.get_u8(r)))
+            .wrapping_sub(carry),
     };
 
     state.cpu.cc.arith_flags(answer);
@@ -253,17 +255,17 @@ pub(crate) fn dcr(reg: Register, state: &mut CPUInterface) -> OpResult {
             cycles = 10;
             let offset = (u16::from(state.cpu.h) << 8) | u16::from(state.cpu.l);
             let m: u16 = state.read(offset)?.into();
-            let result = m as i16 - 1;
-            write_hl(state, (result & 0xff) as u8)?;
-            result as u16
+            let result = (m.wrapping_sub(1) & 0xff) as u8;
+            write_hl(state, result)?;
+            result
         }
         r => {
-            let result = ((i16::from(state.get_u8(r)) - 1) & 0xff) as u8;
+            let result = (u16::from(state.get_u8(r)).wrapping_sub(1) & 0xff) as u8;
             state.set_u8(reg, result);
-            u16::from(result)
+            result
         }
     };
-    state.cpu.cc.arith_flags(answer);
+    state.cpu.cc.flags_zsp(answer);
     Ok(cycles)
 }
 
@@ -567,7 +569,7 @@ pub(crate) fn log<F: Fn(u16, u16) -> u16>(
         r => op(state.cpu.a.into(), state.get_u8(*r).into()),
     };
     state.cpu.a = (answer & 0xff) as u8;
-    state.cpu.cc.logic_flags(answer as u16);
+    state.cpu.cc.logic_flags(answer);
     Ok(cycles)
 }
 
@@ -595,7 +597,7 @@ pub(crate) fn cpi(state: &mut CPUInterface) -> OpResult {
 
 pub(crate) fn cmp(reg: Register, state: &mut CPUInterface) -> OpResult {
     state.advance()?;
-    let a: i16 = state.cpu.a.into();
+    let a: u16 = state.cpu.a.into();
     let mut cycles = 4;
     let x = match &reg {
         SP | PSW => {
@@ -605,11 +607,11 @@ pub(crate) fn cmp(reg: Register, state: &mut CPUInterface) -> OpResult {
         M => {
             cycles = 7;
             let val = read_hl(state)?;
-            ((a - i16::from(val)) & 0xff) as u16
+            a.wrapping_sub(val.into())
         }
         r => {
             let val = state.get_u8(*r);
-            ((a - i16::from(val)) & 0xff) as u16
+            a.wrapping_sub(val.into())
         }
     };
     state.cpu.cc.sign(x);
