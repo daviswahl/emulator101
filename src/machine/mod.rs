@@ -72,10 +72,9 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
 
             let mut iters = 0;
             while let Some(now) = timer.recv() {
-                let memory = interface.memory_handle()?;
                 let mut cpu_interface = CPUInterface {
-                    cpu: cpu.write()?,
-                    memory,
+                    cpu: &mut *cpu.write()?,
+                    memory: &mut *interface.memory_handle()?,
                 };
                 interface.handle_interrupt(&now, &mut cpu_interface)?;
 
