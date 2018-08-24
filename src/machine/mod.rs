@@ -101,7 +101,7 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
             Ok(())
         });
 
-        let th2: thread::JoinHandle<Result<(), Error>> = thread::spawn(move || {
+        let th2 = thread::spawn(move || {
             let timer = channel::tick(Duration::from_millis(16));
             while let Some(_) = timer.recv() {
                 interface2.display_refresh(interface2.memory_handle()?.vram()?)
