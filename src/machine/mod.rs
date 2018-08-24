@@ -3,7 +3,6 @@ pub mod display;
 pub mod memory;
 pub mod rom;
 
-use crate::error::EmulatorError;
 pub use crate::machine::cpu::pause;
 pub use crate::machine::cpu::CPUInterface;
 pub use crate::machine::cpu::CPU;
@@ -12,6 +11,7 @@ use crate::machine::rom::Rom;
 use crossbeam_channel as channel;
 use crossbeam_channel::Sender;
 use failure::Fail;
+use std::any::Any;
 use std::error;
 use std::error::Error;
 use std::fmt;
@@ -33,6 +33,11 @@ pub enum MachineError {
     CPUError(#[fail(cause)] cpu::Error),
     #[fail(display = "LockErr")]
     LockErr,
+    #[fail(display = "{}", _0)]
+    GameError(#[fail(cause)] ggez::GameError),
+
+    #[fail(display = "{}", _0)]
+    ForeignError(String),
 }
 
 impl error::Error for Box<MachineError> {}
@@ -48,6 +53,25 @@ impl From<cpu::Error> for MachineError {
         MachineError::CPUError(err)
     }
 }
+
+impl From<memory::Error> for MachineError {
+    fn from(err: memory::Error) -> Self {
+        MachineError::MemoryError(err)
+    }
+}
+
+impl From<ggez::GameError> for MachineError {
+    fn from(err: ggez::GameError) -> Self {
+        MachineError::GameError(err).into()
+    }
+}
+
+impl From<Box<Any + Send>> for MachineError {
+    fn from(err: Box<Any + Send>) -> Self {
+        MachineError::ForeignError("Foreign error".to_string())
+    }
+}
+
 pub trait MachineInterface: Clone {
     fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), MachineError>;
     fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), MachineError>;
@@ -87,14 +111,14 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
         })
     }
 
-    pub fn run(&mut self) -> Result<(), EmulatorError> {
+    pub fn run(&mut self) -> Result<(), MachineError> {
         let (tx, rx) = channel::unbounded();
         let memory = self.memory.clone();
         let cpu = self.cpu.clone();
         let interface = I::apply(memory, tx);
         let interface2 = interface.clone();
 
-        let th1: thread::JoinHandle<Result<(), EmulatorError>> = thread::spawn(move || {
+        let th1: thread::JoinHandle<Result<(), MachineError>> = thread::spawn(move || {
             use std::time;
             let start = time::Instant::now();
             let mut last_timer = start;
@@ -132,7 +156,7 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
             Ok(())
         });
 
-        let th2: thread::JoinHandle<Result<(), EmulatorError>> = thread::spawn(move || {
+        let th2: thread::JoinHandle<Result<(), MachineError>> = thread::spawn(move || {
             let timer = channel::tick(Duration::from_millis(16));
             while let Some(_) = timer.recv() {
                 interface2.display_refresh(interface2.memory_handle()?.vram()?)
@@ -143,8 +167,7 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
         display::run(rx)?;
 
         use failure::ResultExt;
-        th1.join();
-        th2.join();
-        Ok(())
+        th1.join()??;
+        th2.join()?
     }
 }

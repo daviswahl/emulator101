@@ -28,5 +28,6 @@ pub mod machine;
 pub fn main() -> Result<(), EmulatorError> {
     machine::Machine::load::<space_invaders::SpaceInvaders>("roms/invaders.rom")
         .expect("couldn't load rom")
-        .run()
+        .run()?;
+    Ok(())
 }

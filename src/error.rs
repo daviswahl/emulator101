@@ -79,7 +79,7 @@ pub enum EmulatorErrorKind {
     #[fail(display = "Memory Error: {}", _0)]
     MemoryError(#[fail(cause)] crate::machine::memory::Error),
 
-    #[fail(display = "Machine Error: {}", _0)]
+    #[fail(display = "MachineError {}", _0)]
     MachineError(#[fail(cause)] crate::machine::MachineError),
 
     #[fail(display = "{}", _0)]
