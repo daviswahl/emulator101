@@ -13,12 +13,7 @@ use crate::machine::memory::Memory;
 use crate::machine::rom::Rom;
 use crossbeam_channel as channel;
 use crossbeam_channel::Sender;
-use failure::Fail;
-use std::any::Any;
-use std::fmt;
-use std::fmt::Display;
 use std::marker::PhantomData;
-use std::sync;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::sync::RwLockWriteGuard;
@@ -46,10 +41,11 @@ pub struct Machine<I> {
 
 impl<I: MachineInterface + Send + 'static> Machine<I> where {
     pub fn load<R: Rom<I>>(path: &'static str) -> Result<Machine<I>, &'static str> {
-        let mut v = R::load(path).map_err(|_| "failed to read file")?;
-        v.extend(vec![0x0; 8192]);
+        let rom = R::load(path).map_err(|_| "failed to read file")?;
+        let mut buf = vec![0x0; 8 * 0x1000];
+        buf.splice(..rom.len(), rom.into_iter());
 
-        let memory = Arc::new(RwLock::new(Memory::new(v)));
+        let memory = Arc::new(RwLock::new(Memory::new(buf)));
         let mut cpu = cpu::new();
         cpu.debug = true;
         let cpu = Arc::new(RwLock::new(cpu));
@@ -69,7 +65,6 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
         let interface2 = interface.clone();
 
         let th1: thread::JoinHandle<Result<(), Error>> = thread::spawn(move || {
-            use std::time;
             let start = time::Instant::now();
             let mut last_timer = start;
 
@@ -116,7 +111,6 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
 
         display::run(rx)?;
 
-        use failure::ResultExt;
         th1.join()??;
         th2.join()?
     }

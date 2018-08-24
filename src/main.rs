@@ -13,13 +13,9 @@ extern crate failure;
 extern crate crossbeam_channel;
 extern crate ggez;
 
-use std::any::Any;
-
 mod diag;
 mod space_invaders;
 
-use crate::failure::Backtrace;
-use crate::failure::Context;
 use crate::failure::Fail;
 
 pub mod machine;

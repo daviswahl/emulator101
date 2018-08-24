@@ -44,7 +44,7 @@ macro_rules! read_3 {
 crate fn disassemble(buf: &Memory, pos: u16) -> Result<(Instruction, u16), Error> {
     use crate::machine::cpu::ops::Register::*;
     let code = buf.read(pos as u16)?;
-    let code = OpCode::from_u8(code).ok_or(ErrorKind::UnknownOp(code))?;
+    let code = OpCode::from_u8(code).ok_or_else(|| ErrorKind::UnknownOp(code))?;
     match code {
         OpCode::NOP_0
         | OpCode::NOP_1

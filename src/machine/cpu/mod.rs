@@ -151,7 +151,6 @@ pub enum ErrorKind {
     Exit(u8),
 }
 
-use crate::failure::ResultExt;
 use failure::Fail;
 
 impl<'a> CPUInterface<'a> {
@@ -188,11 +187,12 @@ impl<'a> CPUInterface<'a> {
     }
 
     pub fn read(&self, offset: u16) -> Result<u8, Error> {
-        Ok(self.memory.read(offset)?.into())
+        Ok(self.memory.read(offset)?)
     }
 
     pub fn write(&mut self, offset: u16, data: u8) -> Result<(), Error> {
-        Ok(self.memory.write(offset, data)?)
+        self.memory.write(offset, data)?;
+        Ok(())
     }
 
     pub fn advance(&mut self) -> Result<(), Error> {

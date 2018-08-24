@@ -26,15 +26,11 @@ pub struct SpaceInvadersMachineInterface {
     sender: Sender<[u8; display::FB_SIZE]>,
 }
 
-use failure::ResultExt;
 pub struct SpaceInvaders;
-use crate::machine::cpu;
-use crate::machine::memory;
 use crate::machine::rom::Rom;
 use crate::machine::Error;
 use std::fs;
 use std::path::Path;
-use std::sync;
 
 impl MachineInterface for SpaceInvadersMachineInterface {
     fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), Error> {

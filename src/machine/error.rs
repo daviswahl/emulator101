@@ -22,7 +22,7 @@ pub enum Error {
 impl error::Error for Box<Error> {}
 
 impl<T> From<sync::PoisonError<T>> for Error {
-    fn from(err: sync::PoisonError<T>) -> Self {
+    fn from(_err: sync::PoisonError<T>) -> Self {
         Error::LockErr
     }
 }
@@ -41,12 +41,12 @@ impl From<memory::Error> for Error {
 
 impl From<ggez::GameError> for Error {
     fn from(err: ggez::GameError) -> Self {
-        Error::GameError(err).into()
+        Error::GameError(err)
     }
 }
 
 impl From<Box<Any + Send>> for Error {
-    fn from(err: Box<Any + Send>) -> Self {
+    fn from(_err: Box<Any + Send>) -> Self {
         Error::ForeignError("Foreign error".to_string())
     }
 }

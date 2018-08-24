@@ -1,4 +1,3 @@
-use crate::machine::cpu;
 use crate::machine::display;
 use crate::machine::memory;
 use crate::machine::memory::Memory;
@@ -13,6 +12,7 @@ use std::sync::RwLock;
 use std::sync::RwLockWriteGuard;
 use std::time::Instant;
 
+#[allow(dead_code)]
 struct Diag;
 
 #[derive(Clone)]
