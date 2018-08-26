@@ -32,7 +32,7 @@ pub struct CPU {
     pub int_enable: u8,
     pub iters: u64,
     pub last_instruction: Option<(Instruction, u16)>,
-    pub break_on: Option<usize>,
+    pub pause: bool,
     pub debug: bool,
     pub cycles: u128,
     pub history: History,
@@ -124,12 +124,12 @@ impl<'a> CPUInterface<'a> {
     }
 
     pub fn advance(&mut self) -> Result<(), Error> {
-        let pc = self.cpu.pc;
-        if self.memory.len() >= pc + 1 {
-            self.cpu.pc += 1;
+        let pc = (self.cpu.pc + 1) % 0x4000;
+        if self.memory.len() >= pc {
+            self.cpu.pc = pc;
             Ok(())
         } else {
-            Err(ErrorKind::PCOutOfRange(pc + 1, self.memory.len()).into())
+            Err(ErrorKind::PCOutOfRange(pc, self.memory.len()).into())
         }
     }
 
@@ -144,6 +144,7 @@ impl<'a> CPUInterface<'a> {
         self.cpu.sp = sp.wrapping_sub(2);
 
         self.cpu.pc = interrupt_num.wrapping_mul(8);
+
         Ok(())
     }
 }
@@ -169,7 +170,7 @@ pub(crate) fn new() -> CPU {
         int_enable: 0,
         iters: 0,
         last_instruction: None,
-        break_on: None,
+        pause: false,
         debug: false,
         cycles: 0,
         history: ring_buffers::new([None; 256]),

@@ -77,7 +77,6 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
                     cpu: &mut *cpu.write()?,
                     memory: &mut *interface.memory_handle()?,
                 };
-                interface.handle_interrupt(&now, &mut cpu_interface)?;
 
                 let since_last = now - last_timer;
                 let cycles_behind = 2 * since_last.as_micros();
@@ -90,9 +89,14 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
                     )?);
                 }
 
+                interface.handle_interrupt(&now, &mut cpu_interface)?;
                 if iters % 100 == 0 {
                     let mhz = cpu_interface.cpu.cycles as f64 / start.elapsed().as_micros() as f64;
                     println!("mhz: {}", mhz);
+                }
+
+                if iters % 1000 == 0 {
+                    //println!("{}", cpu_interface.cpu.history)
                 }
 
                 last_timer = now;

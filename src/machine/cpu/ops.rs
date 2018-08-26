@@ -5,7 +5,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 #[repr(u8)]
-#[derive(FromPrimitive, PartialEq, Debug)]
+#[derive(FromPrimitive, PartialEq, Debug, Clone, Copy)]
 #[allow(non_camel_case_types)]
 pub enum OpCode {
     NOP_0 = 0x00,

@@ -328,8 +328,8 @@ pub(crate) fn shld(state: &mut CPUInterface) -> OpResult {
     let l = state.read_1()?;
     let h = state.read_1()?;
     let adr = to_adr(h, l);
-    state.write(adr, l)?;
-    state.write(adr.wrapping_add(1), h)?;
+    state.write(adr, state.cpu.l)?;
+    state.write(adr.wrapping_add(1), state.cpu.h)?;
     Ok(16)
 }
 
@@ -571,7 +571,7 @@ pub(crate) fn logi<F: Fn(u16, u16) -> u16>(
     let val = state.read_1()?.into();
     let answer = op(state.cpu.a.into(), val);
     state.cpu.a = (answer & 0xff) as u8;
-    state.cpu.cc.logic_flags(answer as u16);
+    state.cpu.cc.logic_flags(answer);
     Ok(cycles)
 }
 

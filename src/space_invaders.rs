@@ -110,3 +110,13 @@ impl Rom<SpaceInvadersMachineInterface> for SpaceInvaders {
         fs::read(p).map_err(|_| "failed to read space invaders rom".to_owned())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn dissassemble_all() {
+        let buf = SpaceInvaders::dissassembble("roms/invaders.rom").unwrap();
+        ::std::fs::write(std::path::Path::new("disassemble.txt"), buf).unwrap();
+    }
+}

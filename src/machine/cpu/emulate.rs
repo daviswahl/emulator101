@@ -42,7 +42,8 @@ pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Re
         println!("{:?}", instruction);
         println!("{:?}", *cpu.cpu);
     }
-    let result = match op {
+
+    let result = match op.clone() {
         NOP_0 | NOP_1 | NOP_2 | NOP_3 | NOP_4 | NOP_5 | NOP_6 | NOP_7 | NOP_8 | NOP_9 | NOP_10 => {
             cpu.advance()?;
             Ok(4)
@@ -249,10 +250,10 @@ pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Re
         CMP_H => instructions::cmp(H, cpu),
         CMP_M => instructions::cmp(M, cpu),
 
-        RIM => {
-            cpu.advance()?;
-            Ok(4)
-        }
+        //    RIM => {
+    //        cpu.advance()?;
+    //        Ok(4)
+    //    }
 
         // BRANCH
         CALL => instructions::call(cpu),
@@ -345,8 +346,13 @@ pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Re
         EI => simple!(cpu, 4, cpu.cpu.int_enable = 1),
         DI => simple!(cpu, 4, cpu.cpu.int_enable = 0),
 
-        s => Err(ErrorKind::UnimplementedOp(s))?,
+        s => Err(ErrorKind::History(cpu.cpu.history.clone()))?,
     }.history(cpu)?;
+
+    if cpu.cpu.pause {
+        println!("{:?}", op);
+        crate::machine::cpu::pause(&cpu.cpu);
+    }
 
     cpu.cpu.iters += 1;
     cpu.cpu.cycles += u128::from(result);
