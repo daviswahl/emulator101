@@ -1,9 +1,10 @@
 use crate::machine::cpu::disassembler::disassemble;
 use crate::machine::cpu::instructions;
 use crate::machine::cpu::{Error, ErrorKind};
+use crate::ring_buffers::RingBuffer;
 use failure::ResultExt;
 use num::FromPrimitive;
-use ringbuffer::RingBufferStore;
+use ringbuffer::RingBuffer as RB;
 
 macro_rules! simple {
     ($cpu:ident, $cycles:expr, $e:expr) => {{
@@ -17,10 +18,22 @@ use crate::machine::cpu::ops::OpCode;
 use crate::machine::CPUInterface;
 use crate::machine::MachineInterface;
 
+use std::fmt;
+
+trait HistoryResultExt {
+    fn history(self, cpu: &CPUInterface) -> Result<u8, Error>;
+}
+
+impl HistoryResultExt for Result<u8, Error> {
+    fn history(self, cpu: &CPUInterface) -> Result<u8, Error> {
+        self.context(ErrorKind::History(cpu.cpu.history.clone()))
+            .map_err(|e| e.into())
+    }
+}
 pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Result<u8, Error> {
     use crate::machine::cpu::ops::OpCode::*;
     use crate::machine::cpu::ops::Register::*;
-    let code = cpu.read(cpu.cpu.pc)?;
+    let code = cpu.read(cpu.cpu.pc).history(cpu)?;
     let op = OpCode::from_u8(code).unwrap();
 
     let instruction = disassemble(&cpu.memory, cpu.cpu.pc)?;
@@ -333,7 +346,7 @@ pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Re
         DI => simple!(cpu, 4, cpu.cpu.int_enable = 0),
 
         s => Err(ErrorKind::UnimplementedOp(s))?,
-    }?;
+    }.history(cpu)?;
 
     cpu.cpu.iters += 1;
     cpu.cpu.cycles += u128::from(result);

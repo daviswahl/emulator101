@@ -21,7 +21,7 @@ impl Memory {
     }
 
     pub fn read(&self, offset: u16) -> Result<u8, Error> {
-        let offset = offset as usize;
+        let offset = offset as usize % 0x4000;
         let mem = &self.0;
         if mem.len() > offset {
             Ok(mem[offset])
@@ -49,7 +49,7 @@ impl Memory {
     }
 
     pub fn write(&mut self, offset: u16, data: u8) -> Result<(), Error> {
-        let offset = offset as usize;
+        let offset = offset as usize % 0x4000;
         let mem = &mut self.0;
 
         // rom should be configured by ROM

@@ -21,6 +21,10 @@ mod space_invaders;
 
 use crate::failure::Fail;
 
+mod ring_buffers {
+    impl_ring_buffer!(256, 4);
+}
+
 pub mod machine;
 pub fn main() -> Result<(), machine::Error> {
     machine::Machine::load::<space_invaders::SpaceInvaders>("roms/invaders.rom")

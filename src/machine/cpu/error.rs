@@ -39,17 +39,17 @@ impl From<crate::machine::Error> for Error {
     }
 }
 
+impl From<Context<ErrorKind>> for Error {
+    fn from(kind: Context<ErrorKind>) -> Error {
+        Error { inner: kind }
+    }
+}
+
 impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Error {
         Error {
             inner: Context::new(kind),
         }
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error { inner }
     }
 }
 
@@ -81,4 +81,7 @@ pub enum ErrorKind {
 
     #[fail(display = "exit: {}", _0)]
     Exit(u8),
+
+    #[fail(display = "{}", _0)]
+    History(crate::machine::cpu::History),
 }

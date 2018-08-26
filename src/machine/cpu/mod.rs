@@ -1,5 +1,4 @@
 pub mod disassembler;
-use ringbuffer::RingBufferStore;
 
 use crate::machine::cpu::ops::*;
 pub mod ops;
@@ -13,7 +12,11 @@ pub use crate::machine::cpu::error::{Error, ErrorKind};
 
 pub use crate::machine::cpu::emulate::emulate;
 use crate::machine::cpu::ops::Register;
+use crate::ring_buffers;
+use crate::ring_buffers::RingBuffer;
+use std::fmt;
 
+pub type History = ring_buffers::RingBuffer<[Option<Instruction>; 256]>;
 #[derive(Debug)]
 pub struct CPU {
     pub a: u8,
@@ -32,11 +35,17 @@ pub struct CPU {
     pub break_on: Option<usize>,
     pub debug: bool,
     pub cycles: u128,
-    pub history: RingBuffer<[Option<Instruction>; 256]>,
+    pub history: History,
 }
 
-init_ring_buffer!(RingBuffer);
-impl_ring_buffer!(RingBuffer, rb_256, 256);
+impl fmt::Display for History {
+    fn fmt(&self, f: &'_ mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        for i in self.iter() {
+            write!(f, "{:?}\n", i)?;
+        }
+        Ok(())
+    }
+}
 impl fmt::Display for CPU {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
@@ -163,7 +172,7 @@ pub(crate) fn new() -> CPU {
         break_on: None,
         debug: false,
         cycles: 0,
-        history: ring_buffer!(RingBuffer, 256),
+        history: ring_buffers::new([None; 256]),
     }
 }
 
