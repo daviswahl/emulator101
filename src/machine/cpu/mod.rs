@@ -1,4 +1,5 @@
 pub mod disassembler;
+use ringbuffer::RingBufferStore;
 
 use crate::machine::cpu::ops::*;
 pub mod ops;
@@ -12,8 +13,6 @@ pub use crate::machine::cpu::error::{Error, ErrorKind};
 
 pub use crate::machine::cpu::emulate::emulate;
 use crate::machine::cpu::ops::Register;
-
-use std::fmt;
 
 #[derive(Debug)]
 pub struct CPU {
@@ -33,8 +32,11 @@ pub struct CPU {
     pub break_on: Option<usize>,
     pub debug: bool,
     pub cycles: u128,
+    pub history: RingBuffer<[Option<Instruction>; 256]>,
 }
 
+init_ring_buffer!(RingBuffer);
+impl_ring_buffer!(RingBuffer, rb_256, 256);
 impl fmt::Display for CPU {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
@@ -161,6 +163,7 @@ pub(crate) fn new() -> CPU {
         break_on: None,
         debug: false,
         cycles: 0,
+        history: ring_buffer!(RingBuffer, 256),
     }
 }
 

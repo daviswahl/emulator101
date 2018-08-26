@@ -40,7 +40,7 @@ impl Memory {
 
     pub fn vram(&self) -> Result<[u8; display::FB_SIZE], Error> {
         let mut v = [0; display::FB_SIZE];
-        if self.0.len() >= 0x4000 {
+        if self.0.len() > 0x4000 {
             v.copy_from_slice(&self.0[0x2400..0x4000]);
             Ok(v)
         } else {

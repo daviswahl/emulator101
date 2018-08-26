@@ -541,19 +541,6 @@ pub(crate) fn pop(reg: Register, state: &mut CPUInterface) -> OpResult {
     Ok(10)
 }
 
-// pub(crate) fn tmp(reg: Register, state: &mut State) -> OpResult {
-//    state.advance()?;
-//    match &reg {
-//        SP | PSW | M | H | L => {
-//            unimplemented!("unimplemented tmp: {:?}", reg);
-//        }
-//
-//        r => {
-//        }
-//    };
-//    Ok(())
-//}
-
 pub(crate) fn log<F: Fn(u16, u16) -> u16>(
     reg: Register,
     state: &mut CPUInterface,

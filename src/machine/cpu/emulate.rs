@@ -1,7 +1,9 @@
 use crate::machine::cpu::disassembler::disassemble;
 use crate::machine::cpu::instructions;
 use crate::machine::cpu::{Error, ErrorKind};
+use failure::ResultExt;
 use num::FromPrimitive;
+use ringbuffer::RingBufferStore;
 
 macro_rules! simple {
     ($cpu:ident, $cycles:expr, $e:expr) => {{
@@ -21,8 +23,9 @@ pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Re
     let code = cpu.read(cpu.cpu.pc)?;
     let op = OpCode::from_u8(code).unwrap();
 
+    let instruction = disassemble(&cpu.memory, cpu.cpu.pc)?;
+    cpu.cpu.history.push(instruction.0);
     if cpu.cpu.debug {
-        let instruction = disassemble(&cpu.memory, cpu.cpu.pc)?;
         println!("{:?}", instruction);
         println!("{:?}", *cpu.cpu);
     }

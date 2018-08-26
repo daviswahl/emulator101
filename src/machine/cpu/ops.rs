@@ -1,5 +1,9 @@
 #![allow(exceeding_bitshifts)]
 
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+
 #[repr(u8)]
 #[derive(FromPrimitive, PartialEq, Debug)]
 #[allow(non_camel_case_types)]
@@ -383,4 +387,10 @@ pub enum Instruction {
     RPO,
 
     SPHL,
+}
+
+impl fmt::Display for Instruction {
+    fn fmt(&self, f: &'_ mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        <Self as fmt::Debug>::fmt(self, f)
+    }
 }

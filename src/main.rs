@@ -10,6 +10,8 @@ extern crate num_derive;
 #[macro_use]
 extern crate failure;
 
+#[macro_use]
+extern crate ringbuffer;
 extern crate core;
 extern crate crossbeam_channel;
 extern crate ggez;
