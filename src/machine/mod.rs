@@ -21,11 +21,16 @@ use std::thread;
 use std::time;
 use std::time::Duration;
 
+pub enum MachineEvent {
+    KeyDown,
+}
 pub trait MachineInterface: Clone {
     fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), Error>;
     fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), Error>;
     fn handle_interrupt(&self, now: &time::Instant, cpu: &mut CPUInterface) -> Result<(), Error>;
     fn memory_handle(&self) -> Result<RwLockWriteGuard<Memory>, Error>;
+
+    fn handle_event(&self, evt: MachineEvent) -> Result<(), Error>;
 
     fn display_refresh(&self, buf: [u8; display::FB_SIZE]);
     fn apply(memory: Arc<RwLock<Memory>>, sender: Sender<[u8; display::FB_SIZE]>) -> Self

@@ -88,6 +88,19 @@ impl event::EventHandler for Display {
 
         Ok(())
     }
+
+    fn key_down_event(&mut self, _ctx: &mut Context, keycode: Keycode, keymod: Mod, repeat: bool) {
+        println!(
+            "Key pressed: {:?}, modifier {:?}, repeat: {}",
+            keycode, keymod, repeat
+        );
+    }
+    fn key_up_event(&mut self, _ctx: &mut Context, keycode: Keycode, keymod: Mod, repeat: bool) {
+        println!(
+            "Key released: {:?}, modifier {:?}, repeat: {}",
+            keycode, keymod, repeat
+        );
+    }
 }
 
 // Now our main function, which does three things:
@@ -99,6 +112,9 @@ impl event::EventHandler for Display {
 // do the work of creating our MainState and running our game.
 // * Then, just call `game.run()` which runs the `Game` mainloop.
 use crate::machine::display;
+use ggez::event::Keycode;
+use ggez::event::Mod;
+
 pub fn run(recv: Receiver<[u8; display::FB_SIZE]>) -> GameResult<()> {
     let mut c = conf::Conf::new();
     c.window_mode.width = 224;

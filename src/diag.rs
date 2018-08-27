@@ -3,6 +3,7 @@ use crate::machine::memory;
 use crate::machine::memory::Memory;
 use crate::machine::rom::Rom;
 use crate::machine::CPUInterface;
+use crate::machine::MachineEvent;
 use crate::machine::{Error, MachineInterface};
 use crossbeam_channel::Sender;
 use std::fs;
@@ -43,6 +44,10 @@ impl MachineInterface for DiagInterface {
         self.memory
             .write()
             .map_err(|_| Error::MemoryError(memory::Error::LockErr))
+    }
+
+    fn handle_event(&self, evt: MachineEvent) -> Result<(), Error> {
+        unimplemented!()
     }
 
     fn display_refresh(&self, _buf: [u8; display::FB_SIZE]) {}

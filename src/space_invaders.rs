@@ -15,6 +15,7 @@ pub struct SpaceInvadersMachineState {
     shift_offset: u8,
     next_interrupt: Instant,
     which_interrupt: u8,
+    in_port: u8,
 }
 
 #[derive(Clone)]
@@ -29,6 +30,7 @@ pub struct SpaceInvadersMachineInterface {
 pub struct SpaceInvaders;
 use crate::machine::rom::Rom;
 use crate::machine::Error;
+use crate::machine::MachineEvent;
 use std::fs;
 use std::path::Path;
 
@@ -36,7 +38,7 @@ impl MachineInterface for SpaceInvadersMachineInterface {
     fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), Error> {
         cpu.cpu.a = match port {
             0 => 1,
-            1 => 0,
+            1 => self.state.read()?.in_port,
             3 => {
                 let read = self.state.read()?;
                 let v = u16::from(read.shift1) << 8 | u16::from(read.shift0);
@@ -81,6 +83,10 @@ impl MachineInterface for SpaceInvadersMachineInterface {
         Ok(self.memory.write()?)
     }
 
+    fn handle_event(&self, evt: MachineEvent) -> Result<(), Error> {
+        unimplemented!()
+    }
+
     fn display_refresh(&self, buf: [u8; display::FB_SIZE]) {
         self.sender.send(buf)
     }
@@ -94,6 +100,7 @@ impl MachineInterface for SpaceInvadersMachineInterface {
 
             next_interrupt: now + Duration::from_micros(16000),
             which_interrupt: 1,
+            in_port: 0,
         }));
         SpaceInvadersMachineInterface {
             state,
