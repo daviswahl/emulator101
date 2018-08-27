@@ -13,6 +13,8 @@ use crate::machine::memory::Memory;
 use crate::machine::rom::Rom;
 use crossbeam_channel as channel;
 use crossbeam_channel::Sender;
+use ggez::event::Keycode;
+use ggez::event::Mod;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -21,9 +23,21 @@ use std::thread;
 use std::time;
 use std::time::Duration;
 
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub enum MachineEvent {
-    KeyDown,
+    KeyDown {
+        code: Keycode,
+        keymod: Mod,
+        repeat: bool,
+    },
+    KeyUp {
+        code: Keycode,
+        keymod: Mod,
+        repeat: bool,
+    },
+    Exit(u8),
 }
+
 pub trait MachineInterface: Clone {
     fn handle_in(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), Error>;
     fn handle_out(&self, cpu: &mut CPUInterface, port: u8) -> Result<(), Error>;
@@ -70,6 +84,7 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
         let interface2 = interface.clone();
         let debug = self.cpu.read()?.debug;
 
+        let (evt_tx, evt_rx) = channel::unbounded();
         let th1: thread::JoinHandle<Result<(), Error>> = thread::spawn(move || {
             let start = time::Instant::now();
             let mut last_timer = start;
@@ -94,7 +109,6 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
                     )?);
                 }
 
-                interface.handle_interrupt(&now, &mut cpu_interface)?;
                 if iters % 100 == 0 {
                     let mhz = cpu_interface.cpu.cycles as f64 / start.elapsed().as_micros() as f64;
                     println!("mhz: {}", mhz);
@@ -119,7 +133,7 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
         });
 
         if !debug {
-            display::run(rx)?;
+            display::run(rx, evt_tx)?;
         }
 
         th1.join()??;

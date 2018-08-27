@@ -14,10 +14,15 @@ struct Display {
     frames: usize,
     buf: DisplayBuf,
     receiver: Receiver<[u8; FB_SIZE]>,
+    event_sender: Sender<MachineEvent>,
 }
 
 impl Display {
-    fn new(_ctx: &mut Context, receiver: Receiver<[u8; FB_SIZE]>) -> GameResult<Display> {
+    fn new(
+        _ctx: &mut Context,
+        receiver: Receiver<[u8; FB_SIZE]>,
+        event_sender: Sender<MachineEvent>,
+    ) -> GameResult<Display> {
         // The ttf file will be in your resources directory. Later, we
         // will mount that directory so we can omit it in the path here.
         let buf = [0; 4 * 224 * 256];
@@ -25,6 +30,7 @@ impl Display {
             frames: 0,
             buf,
             receiver,
+            event_sender,
         };
         Ok(s)
     }
@@ -90,16 +96,18 @@ impl event::EventHandler for Display {
     }
 
     fn key_down_event(&mut self, _ctx: &mut Context, keycode: Keycode, keymod: Mod, repeat: bool) {
-        println!(
-            "Key pressed: {:?}, modifier {:?}, repeat: {}",
-            keycode, keymod, repeat
-        );
+        self.event_sender.send(MachineEvent::KeyDown {
+            code: keycode,
+            keymod,
+            repeat,
+        })
     }
     fn key_up_event(&mut self, _ctx: &mut Context, keycode: Keycode, keymod: Mod, repeat: bool) {
-        println!(
-            "Key released: {:?}, modifier {:?}, repeat: {}",
-            keycode, keymod, repeat
-        );
+        self.event_sender.send(MachineEvent::KeyUp {
+            code: keycode,
+            keymod,
+            repeat,
+        })
     }
 }
 
@@ -112,10 +120,12 @@ impl event::EventHandler for Display {
 // do the work of creating our MainState and running our game.
 // * Then, just call `game.run()` which runs the `Game` mainloop.
 use crate::machine::display;
+use crate::machine::MachineEvent;
+use crossbeam_channel::Sender;
 use ggez::event::Keycode;
 use ggez::event::Mod;
 
-pub fn run(recv: Receiver<[u8; display::FB_SIZE]>) -> GameResult<()> {
+pub fn run(recv: Receiver<[u8; display::FB_SIZE]>, sender: Sender<MachineEvent>) -> GameResult<()> {
     let mut c = conf::Conf::new();
     c.window_mode.width = 224;
     c.window_mode.height = 256;
@@ -129,7 +139,7 @@ pub fn run(recv: Receiver<[u8; display::FB_SIZE]>) -> GameResult<()> {
         ctx.filesystem.mount(&path, true);
     }
 
-    let state = &mut Display::new(ctx, recv)?;
+    let state = &mut Display::new(ctx, recv, sender)?;
     if let Err(e) = event::run(ctx, state) {
         println!("Error encountered: {}", e);
     } else {

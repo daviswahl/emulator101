@@ -48,6 +48,11 @@ pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Re
             cpu.advance()?;
             Ok(4)
         }
+
+        DAA => {
+            cpu.advance()?;
+            Ok(4)
+        }
         ADD_A => instructions::add(A, cpu),
         ADD_B => instructions::add(B, cpu),
         ADD_C => instructions::add(C, cpu),
@@ -346,7 +351,7 @@ pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Re
         EI => simple!(cpu, 4, cpu.cpu.int_enable = 1),
         DI => simple!(cpu, 4, cpu.cpu.int_enable = 0),
 
-        s => Err(ErrorKind::History(cpu.cpu.history.clone()))?,
+        s => Err(ErrorKind::UnimplementedOp(s))?,
     }.history(cpu)?;
 
     if cpu.cpu.pause {

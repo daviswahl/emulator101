@@ -31,6 +31,7 @@ pub struct SpaceInvaders;
 use crate::machine::rom::Rom;
 use crate::machine::Error;
 use crate::machine::MachineEvent;
+use ggez::event::Keycode;
 use std::fs;
 use std::path::Path;
 
@@ -84,7 +85,11 @@ impl MachineInterface for SpaceInvadersMachineInterface {
     }
 
     fn handle_event(&self, evt: MachineEvent) -> Result<(), Error> {
-        unimplemented!()
+        match evt {
+            MachineEvent::KeyDown { code, .. } => key_down(&mut *self.state.write()?, code),
+            MachineEvent::KeyUp { code, .. } => key_up(&mut *self.state.write()?, code),
+            _ => Ok(()),
+        }
     }
 
     fn display_refresh(&self, buf: [u8; display::FB_SIZE]) {
@@ -109,6 +114,21 @@ impl MachineInterface for SpaceInvadersMachineInterface {
             sender,
         }
     }
+}
+
+fn key_down(state: &mut SpaceInvadersMachineState, code: Keycode) -> Result<(), Error> {
+    match code {
+        Keycode::Return => state.in_port |= 0x1,
+        code => println!("unhandled code: {}", code),
+    }
+    Ok(())
+}
+fn key_up(state: &mut SpaceInvadersMachineState, code: Keycode) -> Result<(), Error> {
+    match code {
+        Keycode::Return => state.in_port &= !0x1,
+        code => println!("unhandled code: {}", code),
+    }
+    Ok(())
 }
 impl Rom<SpaceInvadersMachineInterface> for SpaceInvaders {
     const DEBUG: bool = false;
