@@ -57,6 +57,7 @@ pub(crate) fn adc(reg: Register, state: &mut CPUInterface) -> OpResult {
 }
 
 pub(crate) fn adi(state: &mut CPUInterface) -> OpResult {
+    let mut pause = false;
     state.advance()?;
     let val = state.read_1()?;
     let answer = (u16::from(state.cpu.a)) + u16::from(val);
@@ -91,7 +92,7 @@ pub(crate) fn dad(reg: Register, state: &mut CPUInterface) -> OpResult {
         s => unimplemented!("unimplemented lxi: {:?}", s),
     };
 
-    state.cpu.cc.cy = (answer & 0xffff0000) != 0;
+    state.cpu.cc.cy = (answer & 0xffff0000) > 0;
 
     state.cpu.h = ((answer & 0xff00) >> 8) as u8;
     state.cpu.l = (answer & 0xff) as u8;
@@ -118,11 +119,12 @@ pub(crate) fn sub(reg: Register, state: &mut CPUInterface) -> OpResult {
 
 pub(crate) fn sui(state: &mut CPUInterface) -> OpResult {
     state.advance()?;
-    let db: u16 = state.read_1()?.into();
-    let a: u16 = state.cpu.a.into();
+    let db = state.read_1()?;
+    let a = state.cpu.a;
     let result = a.wrapping_sub(db);
-    state.cpu.a = (result & 0xff) as u8;
-    state.cpu.cc.arith_flags(result);
+    state.cpu.a = result;
+    state.cpu.cc.flags_zsp(result);
+    state.cpu.cc.cy = (a < db);
     Ok(7)
 }
 
@@ -133,7 +135,8 @@ pub(crate) fn sbi(state: &mut CPUInterface) -> OpResult {
     let a: u16 = state.cpu.a.into();
     let result = a.wrapping_sub(db).wrapping_sub(carry);
     state.cpu.a = (result & 0xff) as u8;
-    state.cpu.cc.arith_flags(result);
+    state.cpu.cc.flags_zsp((result & 0xff) as u8);
+    state.cpu.cc.cy = (result > 0xff);
     Ok(7)
 }
 
@@ -225,11 +228,11 @@ pub(crate) fn dcx(reg: Register, state: &mut CPUInterface) -> OpResult {
         B => {
             state.cpu.c = state.cpu.c.wrapping_sub(1);
             if state.cpu.c == 0xff {
-                state.cpu.b -= 1;
+                state.cpu.b = state.cpu.b.wrapping_sub(1);
             }
         }
         D => {
-            state.cpu.e = state.cpu.c.wrapping_sub(1);
+            state.cpu.e = state.cpu.e.wrapping_sub(1);
             if state.cpu.e == 0xff {
                 state.cpu.d = state.cpu.d.wrapping_sub(1);
             }

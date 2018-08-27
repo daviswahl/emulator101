@@ -3,9 +3,16 @@
 #![feature(arbitrary_self_types)]
 #![feature(option_replace)]
 #![feature(duration_as_u128)]
+#![feature(const_fn)]
+#![feature(const_let)]
+
+#[macro_use]
+extern crate lazy_static;
 
 #[macro_use]
 extern crate num_derive;
+
+extern crate num;
 
 #[macro_use]
 extern crate failure;

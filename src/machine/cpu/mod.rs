@@ -195,17 +195,7 @@ impl ConditionCodes {
     }
 
     pub fn parity(&mut self, x: u8, size: u32) {
-        let mut p = 0;
-        let mut i = 0;
-        let mut x = x & ((1u8.wrapping_shl(size)) - 1);
-        while i < size {
-            if x & 0x1 == 1 {
-                p += 1
-            }
-            x = x.wrapping_shr(1);
-            i += 1;
-        }
-        self.p = 0 == p & 0x1
+        self.p = PARITY_LUT[x as usize]
     }
 
     pub fn zero(&mut self, v: u16) {
@@ -247,4 +237,39 @@ pub fn pause<D: fmt::Debug>(debug: D) {
 
     // Read a single byte and discard
     let _ = stdin.read(&mut [0u8]).unwrap();
+}
+
+lazy_static! {
+    static ref PARITY_LUT: [bool; 256] = {
+        let mut lut = [false; 256];
+        for i in 0..256 {
+            lut[i] = parity(i as u8);
+        }
+        lut
+    };
+}
+
+fn parity(x: u8) -> bool {
+    let mut bit = 0;
+    let mut num_bits = 0;
+    let mut x = x;
+    while x > 0 {
+        let bitmask = 1 << bit;
+        bit += 1;
+        if x & bitmask > 0 {
+            num_bits += 1;
+        }
+        x &= !bitmask;
+    }
+    num_bits % 2 == 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_parity() {
+        assert!(!parity(118));
+        assert!(!parity(247));
+    }
 }

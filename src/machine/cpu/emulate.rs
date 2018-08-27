@@ -39,8 +39,9 @@ pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Re
     let instruction = disassemble(&cpu.memory, cpu.cpu.pc)?;
     cpu.cpu.history.push(instruction.0);
     if cpu.cpu.debug {
-        //println!("{:?}", instruction);
-        //println!("{:?}", *cpu.cpu);
+        println!("{:#X?}", cpu.cpu.pc);
+        println!("{:?}", instruction.0);
+        println!("{:?}\n", *cpu.cpu);
     }
 
     let result = match op.clone() {
@@ -255,10 +256,10 @@ pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Re
         CMP_H => instructions::cmp(H, cpu),
         CMP_M => instructions::cmp(M, cpu),
 
-        //    RIM => {
-    //        cpu.advance()?;
-    //        Ok(4)
-    //    }
+        RIM => {
+            cpu.advance()?;
+            Ok(4)
+        }
 
         // BRANCH
         CALL => instructions::call(cpu),
