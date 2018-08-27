@@ -39,8 +39,8 @@ pub fn emulate<I: MachineInterface>(cpu: &mut CPUInterface, interface: &I) -> Re
     let instruction = disassemble(&cpu.memory, cpu.cpu.pc)?;
     cpu.cpu.history.push(instruction.0);
     if cpu.cpu.debug {
-        println!("{:?}", instruction);
-        println!("{:?}", *cpu.cpu);
+        //println!("{:?}", instruction);
+        //println!("{:?}", *cpu.cpu);
     }
 
     let result = match op.clone() {

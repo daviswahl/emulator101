@@ -186,30 +186,30 @@ pub struct ConditionCodes {
     pub ac: bool,
 }
 impl ConditionCodes {
-    pub fn logic_flags(&mut self, a: u16) {
+    pub fn logic_flags(&mut self, a: u8) {
         self.cy = false;
         self.ac = false;
         self.z = a == 0;
         self.s = 0x80 == (a & 0x80);
-        self.parity(a, 8);
+        self.parity(a.into(), 8);
     }
 
-    pub fn parity(&mut self, x: u16, size: u16) {
+    pub fn parity(&mut self, x: u8, size: u32) {
         let mut p = 0;
         let mut i = 0;
-        let mut x = x & ((1 << size) - 1);
+        let mut x = x & ((1u8.wrapping_shl(size)) - 1);
         while i < size {
             if x & 0x1 == 1 {
                 p += 1
             }
-            x >>= 1;
+            x = x.wrapping_shr(1);
             i += 1;
         }
         self.p = 0 == p & 0x1
     }
 
     pub fn zero(&mut self, v: u16) {
-        self.z = v.trailing_zeros() >= 8
+        self.z = v & 0xff == 0
     }
 
     pub fn sign(&mut self, v: u16) {
@@ -223,14 +223,14 @@ impl ConditionCodes {
     pub fn arith_flags(&mut self, v: u16) {
         self.carry(v);
         self.sign(v);
-        self.parity(v, 8);
+        self.parity((v & 0xff) as u8, 8);
         self.zero(v)
     }
 
     pub fn flags_zsp(&mut self, v: u8) {
         self.z = (v == 0);
         self.s = (0x80 == (v & 0x80));
-        self.parity(v as u16, 8);
+        self.parity(v, 8);
     }
 }
 

@@ -12,7 +12,7 @@ pub(crate) fn add(reg: Register, state: &mut CPUInterface) -> OpResult {
     let answer = match reg {
         Register::M => {
             cycles = 7;
-            let offset = (u16::from(state.cpu.h) << 8) | u16::from(state.cpu.l);
+            let offset = to_adr(state.cpu.h, state.cpu.l);
             let m: u16 = state.read(offset)?.into();
             u16::from(state.cpu.a) + m
         }
@@ -42,7 +42,7 @@ pub(crate) fn adc(reg: Register, state: &mut CPUInterface) -> OpResult {
     let answer = match reg {
         Register::M => {
             cycles = 7;
-            let offset = (u16::from(state.cpu.h) << 8) | u16::from(state.cpu.l);
+            let offset = to_adr(state.cpu.h, state.cpu.l);
             let m = u16::from(state.read(offset)?).wrapping_add(carry);
             u16::from(state.cpu.a).wrapping_add(m)
         }
@@ -105,7 +105,7 @@ pub(crate) fn sub(reg: Register, state: &mut CPUInterface) -> OpResult {
     let answer = match reg {
         Register::M => {
             cycles = 7;
-            let offset = ((u16::from(state.cpu.h)) << 8) | u16::from(state.cpu.l);
+            let offset = to_adr(state.cpu.h, state.cpu.l);
             let m = u16::from(state.read(offset)?);
             (u16::from(state.cpu.a).wrapping_sub(m))
         }
@@ -165,19 +165,18 @@ pub(crate) fn inr(reg: Register, state: &mut CPUInterface) -> OpResult {
     let answer = match reg {
         Register::M => {
             cycles = 10;
-            let offset = ((u16::from(state.cpu.h)) << 8) | u16::from(state.cpu.l);
-            let m: u16 = state.read(offset)?.into();
-            let result = m + 1;
-            write_hl(state, (result & 0xff) as u8)?;
-            result as u16
+            let offset = to_adr(state.cpu.h, state.cpu.l);
+            let result = state.read(offset)?.wrapping_add(1);
+            write_hl(state, result);
+            result
         }
         r => {
-            let result = u16::from(state.get_u8(r)) + 1;
-            state.set_u8(reg, (result & 0xff) as u8);
+            let result = state.get_u8(r).wrapping_add(1);
+            state.set_u8(reg, result);
             result
         }
     };
-    state.cpu.cc.arith_flags(answer);
+    state.cpu.cc.flags_zsp(answer);
     Ok(cycles)
 }
 
@@ -186,7 +185,7 @@ pub(crate) fn ani(state: &mut CPUInterface) -> OpResult {
     let data: u16 = state.read_1()?.into();
     let answer = (u16::from(state.cpu.a)) & data;
 
-    state.cpu.cc.arith_flags(answer);
+    state.cpu.cc.logic_flags((answer & 0xff) as u8);
     state.cpu.a = (answer & 0xff) as u8;
     Ok(7)
 }
@@ -225,13 +224,13 @@ pub(crate) fn dcx(reg: Register, state: &mut CPUInterface) -> OpResult {
     match &reg {
         B => {
             state.cpu.c = state.cpu.c.wrapping_sub(1);
-            if state.cpu.c == 0 {
+            if state.cpu.c == 0xff {
                 state.cpu.b -= 1;
             }
         }
         D => {
             state.cpu.e = state.cpu.c.wrapping_sub(1);
-            if state.cpu.e == 0 {
+            if state.cpu.e == 0xff {
                 state.cpu.d = state.cpu.d.wrapping_sub(1);
             }
         }
@@ -240,7 +239,7 @@ pub(crate) fn dcx(reg: Register, state: &mut CPUInterface) -> OpResult {
         }
         H => {
             state.cpu.l = state.cpu.l.wrapping_sub(1);
-            if state.cpu.l == 0 {
+            if state.cpu.l == 0xff {
                 state.cpu.h = state.cpu.h.wrapping_sub(1);
             }
         }
@@ -255,7 +254,7 @@ pub(crate) fn dcr(reg: Register, state: &mut CPUInterface) -> OpResult {
     let answer = match reg {
         Register::M => {
             cycles = 10;
-            let offset = (u16::from(state.cpu.h) << 8) | u16::from(state.cpu.l);
+            let offset = to_adr(state.cpu.h, state.cpu.l);
             let m: u16 = state.read(offset)?.into();
             let result = (m.wrapping_sub(1) & 0xff) as u8;
             write_hl(state, result)?;
@@ -275,9 +274,9 @@ pub(crate) fn lxi(reg: Register, state: &mut CPUInterface) -> OpResult {
     state.advance()?;
     match reg {
         SP => {
-            let l: u16 = state.read_1()?.into();
-            let h: u16 = state.read_1()?.into();
-            state.cpu.sp = h << 8 | l;
+            let l = state.read_1()?;
+            let h = state.read_1()?;
+            state.cpu.sp = to_adr(h, l);
         }
         B => {
             state.cpu.c = state.read_1()?;
@@ -541,7 +540,7 @@ pub(crate) fn pop(reg: Register, state: &mut CPUInterface) -> OpResult {
     Ok(10)
 }
 
-pub(crate) fn log<F: Fn(u16, u16) -> u16>(
+pub(crate) fn log<F: Fn(u8, u8) -> u8>(
     reg: Register,
     state: &mut CPUInterface,
     cycles: u8,
@@ -553,34 +552,31 @@ pub(crate) fn log<F: Fn(u16, u16) -> u16>(
             unimplemented!("unimplemented tmp: {:?}", reg);
         }
 
-        M => op(state.cpu.a.into(), read_hl(state)?.into()),
+        M => op(state.cpu.a, read_hl(state)?),
 
-        r => op(state.cpu.a.into(), state.get_u8(*r).into()),
+        r => op(state.cpu.a, state.get_u8(*r)),
     };
-    state.cpu.a = (answer & 0xff) as u8;
+    state.cpu.a = answer;
     state.cpu.cc.logic_flags(answer);
     Ok(cycles)
 }
 
-pub(crate) fn logi<F: Fn(u16, u16) -> u16>(
-    state: &mut CPUInterface,
-    cycles: u8,
-    op: F,
-) -> OpResult {
+pub(crate) fn logi<F: Fn(u8, u8) -> u8>(state: &mut CPUInterface, cycles: u8, op: F) -> OpResult {
     state.advance()?;
-    let val = state.read_1()?.into();
-    let answer = op(state.cpu.a.into(), val);
-    state.cpu.a = (answer & 0xff) as u8;
+    let val = state.read_1()?;
+    let answer = op(state.cpu.a, val);
+    state.cpu.a = answer;
     state.cpu.cc.logic_flags(answer);
     Ok(cycles)
 }
 
 pub(crate) fn cpi(state: &mut CPUInterface) -> OpResult {
     state.advance()?;
-    let immediate: u16 = state.read_1()?.into();
-    let a: u16 = state.cpu.a.into();
+    let immediate = state.read_1()?;
+    let a = state.cpu.a;
     let x = a.wrapping_sub(immediate);
-    state.cpu.cc.arith_flags(x as u16);
+    state.cpu.cc.flags_zsp(x);
+    state.cpu.cc.cy = (a < immediate);
     Ok(7)
 }
 
@@ -603,7 +599,7 @@ pub(crate) fn cmp(reg: Register, state: &mut CPUInterface) -> OpResult {
             a.wrapping_sub(val.into())
         }
     };
-    state.cpu.cc.sign(x);
+    state.cpu.cc.arith_flags(x);
     Ok(cycles)
 }
 
@@ -613,7 +609,7 @@ pub(crate) fn ret_if<F: Fn(&CPUInterface) -> bool>(state: &mut CPUInterface, con
         let sp = state.cpu.sp;
         let l = state.read(sp)?;
         let h = state.read(sp.wrapping_add(1))?;
-        state.cpu.pc = (u16::from(h) << 8) | u16::from(l);
+        state.cpu.pc = to_adr(h, l);
         state.cpu.sp = sp.wrapping_add(2);
         Ok(11)
     } else {
@@ -630,7 +626,7 @@ pub(crate) fn jmp_if<F: Fn(&CPUInterface) -> bool>(state: &mut CPUInterface, f: 
         if state.cpu.debug && l == 0x0 && h == 0x0 {
             Err(ErrorKind::Exit(0))?
         }
-        state.cpu.pc = u16::from(h) << 8 | u16::from(l);
+        state.cpu.pc = to_adr(h, l);
     } else {
         state.cpu.pc += 2;
     }

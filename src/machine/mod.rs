@@ -108,7 +108,11 @@ impl<I: MachineInterface + Send + 'static> Machine<I> where {
                         &interface,
                     )?);
                 }
+                if let Some(evt) = evt_rx.try_recv() {
+                    interface.handle_event(evt)?;
+                }
 
+                interface.handle_interrupt(&now, &mut cpu_interface)?;
                 if iters % 100 == 0 {
                     let mhz = cpu_interface.cpu.cycles as f64 / start.elapsed().as_micros() as f64;
                     println!("mhz: {}", mhz);
