@@ -1,7 +1,6 @@
 use crate::machine::cpu::disassembler::disassemble;
 use crate::machine::cpu::instructions;
 use crate::machine::cpu::{Error, ErrorKind};
-use crate::ring_buffers::RingBuffer;
 use failure::ResultExt;
 use num::FromPrimitive;
 use ringbuffer::RingBuffer as RB;
@@ -17,8 +16,6 @@ macro_rules! simple {
 use crate::machine::cpu::ops::OpCode;
 use crate::machine::CPUInterface;
 use crate::machine::MachineInterface;
-
-use std::fmt;
 
 trait HistoryResultExt {
     fn history(self, cpu: &CPUInterface) -> Result<u8, Error>;

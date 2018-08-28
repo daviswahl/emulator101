@@ -13,7 +13,6 @@ pub use crate::machine::cpu::error::{Error, ErrorKind};
 pub use crate::machine::cpu::emulate::emulate;
 use crate::machine::cpu::ops::Register;
 use crate::ring_buffers;
-use crate::ring_buffers::RingBuffer;
 use std::fmt;
 
 pub type History = ring_buffers::RingBuffer<[Option<Instruction>; 256]>;
@@ -191,10 +190,10 @@ impl ConditionCodes {
         self.ac = false;
         self.z = a == 0;
         self.s = 0x80 == (a & 0x80);
-        self.parity(a.into(), 8);
+        self.parity(a);
     }
 
-    pub fn parity(&mut self, x: u8, size: u32) {
+    pub fn parity(&mut self, x: u8) {
         self.p = PARITY_LUT[x as usize]
     }
 
@@ -213,14 +212,14 @@ impl ConditionCodes {
     pub fn arith_flags(&mut self, v: u16) {
         self.carry(v);
         self.sign(v);
-        self.parity((v & 0xff) as u8, 8);
+        self.parity((v & 0xff) as u8);
         self.zero(v)
     }
 
     pub fn flags_zsp(&mut self, v: u8) {
-        self.z = (v == 0);
-        self.s = (0x80 == (v & 0x80));
-        self.parity(v, 8);
+        self.z = v == 0;
+        self.s = 128 == (v & 128);
+        self.parity(v);
     }
 }
 

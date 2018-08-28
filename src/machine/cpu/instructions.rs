@@ -31,7 +31,7 @@ pub(crate) fn aci(state: &mut CPUInterface) -> OpResult {
     let result = a.wrapping_add(db.wrapping_add(carry));
     state.cpu.a = (result & 0xff) as u8;
     state.cpu.cc.flags_zsp((result & 0xff) as u8);
-    state.cpu.cc.cy = (result > 0xff);
+    state.cpu.cc.cy = result > 255;
     Ok(7)
 }
 
@@ -57,13 +57,12 @@ pub(crate) fn adc(reg: Register, state: &mut CPUInterface) -> OpResult {
 }
 
 pub(crate) fn adi(state: &mut CPUInterface) -> OpResult {
-    let mut pause = false;
     state.advance()?;
     let val = state.read_1()?;
     let answer = (u16::from(state.cpu.a)) + u16::from(val);
 
     state.cpu.cc.flags_zsp((answer & 0xff) as u8);
-    state.cpu.cc.cy = (answer > 0xff);
+    state.cpu.cc.cy = answer > 255;
     state.cpu.a = (answer & 0xff) as u8;
     Ok(7)
 }
@@ -124,7 +123,7 @@ pub(crate) fn sui(state: &mut CPUInterface) -> OpResult {
     let result = a.wrapping_sub(db);
     state.cpu.a = result;
     state.cpu.cc.flags_zsp(result);
-    state.cpu.cc.cy = (a < db);
+    state.cpu.cc.cy = a < db;
     Ok(7)
 }
 
@@ -136,7 +135,7 @@ pub(crate) fn sbi(state: &mut CPUInterface) -> OpResult {
     let result = a.wrapping_sub(db).wrapping_sub(carry);
     state.cpu.a = (result & 0xff) as u8;
     state.cpu.cc.flags_zsp((result & 0xff) as u8);
-    state.cpu.cc.cy = (result > 0xff);
+    state.cpu.cc.cy = result > 255;
     Ok(7)
 }
 
@@ -170,7 +169,7 @@ pub(crate) fn inr(reg: Register, state: &mut CPUInterface) -> OpResult {
             cycles = 10;
             let offset = to_adr(state.cpu.h, state.cpu.l);
             let result = state.read(offset)?.wrapping_add(1);
-            write_hl(state, result);
+            write_hl(state, result)?;
             result
         }
         r => {
@@ -579,7 +578,7 @@ pub(crate) fn cpi(state: &mut CPUInterface) -> OpResult {
     let a = state.cpu.a;
     let x = a.wrapping_sub(immediate);
     state.cpu.cc.flags_zsp(x);
-    state.cpu.cc.cy = (a < immediate);
+    state.cpu.cc.cy = a < immediate;
     Ok(7)
 }
 
@@ -711,7 +710,7 @@ pub(crate) fn rlc(state: &mut CPUInterface) -> OpResult {
     state.advance()?;
     let x = state.cpu.a;
     state.cpu.a = (x << 1) | ((x & 0x80) >> 7);
-    state.cpu.cc.cy = (0x80 == (x & 0x80));
+    state.cpu.cc.cy = 128 == (x & 128);
     Ok(4)
 }
 
@@ -720,7 +719,7 @@ pub(crate) fn ral(state: &mut CPUInterface) -> OpResult {
     let x = state.cpu.a;
     let carry = if state.cpu.cc.cy { 1 } else { 0 };
     state.cpu.a = carry | (x << 1);
-    state.cpu.cc.cy = (0x80 == (x & 0x80));
+    state.cpu.cc.cy = 128 == (x & 128);
     Ok(4)
 }
 

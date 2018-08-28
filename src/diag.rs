@@ -46,7 +46,7 @@ impl MachineInterface for DiagInterface {
             .map_err(|_| Error::MemoryError(memory::Error::LockErr))
     }
 
-    fn handle_event(&self, evt: MachineEvent) -> Result<(), Error> {
+    fn handle_event(&self, _evt: MachineEvent) -> Result<(), Error> {
         unimplemented!()
     }
 
@@ -86,7 +86,6 @@ mod tests {
 
     #[test]
     fn test_diag() {
-        use std::process;
         match crate::machine::Machine::load::<diag::Diag>("roms/cpudiag.bin")
             .expect("couldn't load rom")
             .run()

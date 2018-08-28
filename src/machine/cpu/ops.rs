@@ -1,8 +1,6 @@
 #![allow(exceeding_bitshifts)]
 
 use std::fmt;
-use std::fmt::Display;
-use std::fmt::Formatter;
 
 #[repr(u8)]
 #[derive(FromPrimitive, PartialEq, Debug, Clone, Copy)]
